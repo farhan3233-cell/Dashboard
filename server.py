@@ -106,6 +106,7 @@ def update_account():
 
         # Store account-level info (everything except sub-lists)
         account_info = {k: v for k, v in data.items() if k not in ('positions', 'orders', 'history')}
+        account_info['lastSeen'] = int(time.time())
 
         # Smart holderName preservation logic
         incoming_holder = str(account_info.get('holderName', '')).strip()
@@ -146,7 +147,23 @@ def update_account():
 @app.route('/api/accounts', methods=['GET'])
 @app.route('/accounts', methods=['GET'])
 def get_accounts():
-    filtered_accounts = [a for k, a in accounts_db.items() if str(k) not in ('888888', '999999')]
+    now = int(time.time())
+    filtered_accounts = []
+    for k, a in accounts_db.items():
+        if str(k) in ('888888', '999999'):
+            continue
+        acc = dict(a)
+        last_seen = int(acc.get('lastSeen', 0))
+        diff = now - last_seen if last_seen > 0 else 999999
+
+        if diff <= 25:
+            acc['status'] = 'Active'
+        elif diff <= 65:
+            acc['status'] = 'Processing'
+        else:
+            acc['status'] = 'Disconnected'
+
+        filtered_accounts.append(acc)
     return jsonify({"status": "success", "data": filtered_accounts}), 200
 
 @app.route('/api/positions', methods=['GET'])

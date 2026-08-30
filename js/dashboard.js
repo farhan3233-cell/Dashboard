@@ -65,7 +65,15 @@ function renderDashboard() {
             <td><div class="pl-cell"><span class="pl-val ${plt>=0?'positive':'negative'}">${fmt$(plt)}</span><span class="pl-pct ${pltPct>=0?'positive':'negative'}">${fmtPct(pltPct)}</span></div></td>
             <td><div class="pl-cell"><span class="pl-val ${pla>=0?'positive':'negative'}">${fmt$(pla)}</span><span class="pl-pct ${plaPct>=0?'positive':'negative'}">${fmtPct(plaPct)}</span></div></td>
             <td><span class="status-pill ${st.toLowerCase()}">${st}</span></td>
-            <td><button class="actions-btn"><i class="ph ph-dots-three-vertical"></i></button></td>`;
+            <td>
+                <div style="position:relative;display:inline-block">
+                    <button class="actions-btn" onclick="toggleAccountMenu(event, '${d.account}')" title="Account Actions"><i class="ph ph-dots-three-vertical"></i></button>
+                    <div id="acc-menu-${d.account}" class="acc-actions-menu" style="display:none;position:absolute;right:0;top:100%;z-index:999;background:var(--card-bg);border:1px solid var(--border-color);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);width:150px;padding:4px 0">
+                        <div onclick="editAccountNickname('${d.account}', '${holderName.replace(/'/g, "\\'")}')" style="padding:8px 12px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;gap:8px;color:var(--text-primary);"><i class="ph ph-pencil"></i> Edit Holder</div>
+                        <div onclick="confirmDeleteAccount('${d.account}', '${holderName.replace(/'/g, "\\'")}')" style="padding:8px 12px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;gap:8px;color:var(--red)"><i class="ph ph-trash"></i> Remove</div>
+                    </div>
+                </div>
+            </td>`;
         tbody.appendChild(tr);
     });
 
@@ -166,3 +174,32 @@ async function editAccountNickname(accountId, currentName) {
         }
     }
 }
+
+function toggleAccountMenu(event, accountId) {
+    event.stopPropagation();
+    document.querySelectorAll('.acc-actions-menu').forEach(m => m.style.display = 'none');
+    const menu = document.getElementById(`acc-menu-${accountId}`);
+    if (menu) {
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
+}
+
+async function confirmDeleteAccount(accountId, name) {
+    if (confirm(`Are you sure you want to remove account #${accountId} (${name}) from dashboard?`)) {
+        try {
+            const res = await fetch(`/api/delete_account/${accountId}`, { method: 'DELETE' });
+            if (res.ok) {
+                cachedAccounts = cachedAccounts.filter(a => String(a.account) !== String(accountId));
+                renderDashboard();
+                if (typeof renderAccounts === 'function') renderAccounts();
+                if (typeof renderProfitSharing === 'function') renderProfitSharing();
+            }
+        } catch (e) {
+            console.error('Error deleting account:', e);
+        }
+    }
+}
+
+document.addEventListener('click', () => {
+    document.querySelectorAll('.acc-actions-menu').forEach(m => m.style.display = 'none');
+});
