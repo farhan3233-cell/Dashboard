@@ -82,18 +82,11 @@ def save_db():
 # Load existing state on server launch
 load_db()
 
-# ── Static file serving ────────────────────────────────────────────────────────
-@app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory('.', path)
-
 # ── EA → Server: Master update endpoint ───────────────────────────────────────
-@app.route('/api/update_account', methods=['POST'])
-@app.route('/update_account', methods=['POST'])
+@app.route('/api/update_account', methods=['POST', 'OPTIONS'])
+@app.route('/update_account', methods=['POST', 'OPTIONS'])
+@app.route('/api/index.py/api/update_account', methods=['POST', 'OPTIONS'])
+@app.route('/api/index.py/update_account', methods=['POST', 'OPTIONS'])
 def update_account():
     try:
         data = request.get_json(force=True, silent=True)
@@ -208,6 +201,17 @@ def get_summary():
         }
     }), 200
 
+# ── Static file serving & fallback ───────────────────────────────────────────
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/<path:path>', methods=['GET'])
+def serve_static(path):
+    if os.path.exists(path):
+        return send_from_directory('.', path)
+    return send_from_directory('.', 'index.html')
+
 if __name__ == '__main__':
     print("=" * 50)
     print(" TradeMonitor Dashboard Server")
@@ -216,3 +220,4 @@ if __name__ == '__main__':
     print(" EA Endpoint: POST /api/update_account")
     print("=" * 50)
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+
