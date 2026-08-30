@@ -106,6 +106,16 @@ def update_account():
 
         # Store account-level info (everything except sub-lists)
         account_info = {k: v for k, v in data.items() if k not in ('positions', 'orders', 'history')}
+
+        # Smart holderName preservation logic
+        incoming_holder = str(account_info.get('holderName', '')).strip()
+        existing_holder = str(accounts_db.get(account_id, {}).get('holderName', '')).strip()
+
+        if existing_holder and not existing_holder.startswith('Account #') and (not incoming_holder or incoming_holder.startswith('Account #')):
+            account_info['holderName'] = existing_holder
+        elif not incoming_holder:
+            account_info['holderName'] = existing_holder or f"Account #{account_id}"
+
         if account_id in accounts_db:
             accounts_db[account_id].update(account_info)
         else:
@@ -221,7 +231,9 @@ def set_nickname():
     data = request.get_json(force=True, silent=True) or {}
     acc_id = str(data.get('account', ''))
     nickname = str(data.get('holderName', '')).strip()
-    if acc_id and nickname and acc_id in accounts_db:
+    if acc_id and nickname:
+        if acc_id not in accounts_db:
+            accounts_db[acc_id] = {'account': acc_id}
         accounts_db[acc_id]['holderName'] = nickname
         save_db()
         return jsonify({"status": "success", "message": f"Updated nickname for {acc_id}"}), 200

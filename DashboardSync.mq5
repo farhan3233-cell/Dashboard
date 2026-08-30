@@ -98,7 +98,7 @@ void SendFullTelemetry() {
     // Auto-detect Account Holder Name / Nickname
     string holderName = AccountNickname;
     if (holderName == "") holderName = AccountInfoString(ACCOUNT_NAME);
-    if (holderName == "") holderName = "Account #" + accountId;
+    if (holderName == "") holderName = AccountInfoString(ACCOUNT_OWNER);
 
     // Auto-detect broker & account type natively from MT5
     string broker = AccountInfoString(ACCOUNT_COMPANY);
