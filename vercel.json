@@ -1,5 +1,50 @@
 {
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.py" }
+  "builds": [
+    {
+      "src": "api/*.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/update_account",
+      "dest": "api/update_account.py"
+    },
+    {
+      "src": "/api/accounts",
+      "dest": "api/accounts.py"
+    },
+    {
+      "src": "/api/positions",
+      "dest": "api/positions.py"
+    },
+    {
+      "src": "/api/orders",
+      "dest": "api/orders.py"
+    },
+    {
+      "src": "/api/history",
+      "dest": "api/history.py"
+    },
+    {
+      "src": "/api/alerts",
+      "dest": "api/alerts.py"
+    },
+    {
+      "src": "/api/summary",
+      "dest": "api/summary.py"
+    },
+    {
+      "src": "/api/set_nickname",
+      "dest": "api/set_nickname.py"
+    },
+    {
+      "src": "/api/delete_account/(.*)",
+      "dest": "api/delete_account.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
   ]
 }
