@@ -3,7 +3,25 @@ function renderDashboard() {
     const searchInput = document.getElementById("accounts-search");
     const search = searchInput ? searchInput.value.trim().toLowerCase() : "";
     
-    let accounts = cachedAccounts;
+    const filterSelect = document.getElementById("global-filter");
+    const globalFilterVal = filterSelect ? filterSelect.value : "default";
+
+    let accounts = [...cachedAccounts];
+    if (globalFilterVal === "active-only") {
+        accounts = accounts.filter(a => (a.status || "Active").toLowerCase() === "active");
+    }
+
+    accounts.sort((a, b) => {
+        if (globalFilterVal === "latest") return (b.lastSeen || 0) - (a.lastSeen || 0);
+        if (globalFilterVal === "oldest") return (a.lastSeen || 0) - (b.lastSeen || 0);
+        if (globalFilterVal === "most-profitable") return parseFloat(b.plToday || 0) - parseFloat(a.plToday || 0);
+        if (globalFilterVal === "most-loss") return parseFloat(a.plToday || 0) - parseFloat(b.plToday || 0);
+        if (globalFilterVal === "profit-alltime") return parseFloat(b.plAllTime || 0) - parseFloat(a.plAllTime || 0);
+        if (globalFilterVal === "loss-alltime") return parseFloat(a.plAllTime || 0) - parseFloat(b.plAllTime || 0);
+        if (globalFilterVal === "highest-balance") return parseFloat(b.balance || 0) - parseFloat(a.balance || 0);
+        if (globalFilterVal === "lowest-balance") return parseFloat(a.balance || 0) - parseFloat(b.balance || 0);
+        return 0;
+    });
     if (search) {
         accounts = accounts.filter(a =>
             a.account.toLowerCase().includes(search) ||
@@ -148,6 +166,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("accounts-search");
     if (searchInput) {
         searchInput.addEventListener("input", renderDashboard);
+    }
+    const globalFilter = document.getElementById("global-filter");
+    if (globalFilter) {
+        globalFilter.addEventListener("change", () => {
+            renderDashboard();
+            if (typeof renderAccounts === 'function') renderAccounts();
+            if (typeof renderProfitSharing === 'function') renderProfitSharing();
+            if (typeof renderPerformance === 'function') renderPerformance();
+            if (typeof renderRisk === 'function') renderRisk();
+        });
     }
 });
 

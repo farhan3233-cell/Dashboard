@@ -214,9 +214,27 @@ function renderProfitSharing() {
     const tbody = document.getElementById("sharing-table-body");
     const search = (document.getElementById("sharing-search")||{}).value||"";
     const period = (document.getElementById("sharing-period")||{}).value||"weekly";
-    const accounts = cachedAccounts;
+    const filterSelect = document.getElementById("global-filter");
+    const globalFilterVal = filterSelect ? filterSelect.value : "default";
 
-    let list = accounts.filter(a => {
+    let list = [...cachedAccounts];
+    if (globalFilterVal === "active-only") {
+        list = list.filter(a => (a.status || "Active").toLowerCase() === "active");
+    }
+    
+    list.sort((a, b) => {
+        if (globalFilterVal === "latest") return (b.lastSeen || 0) - (a.lastSeen || 0);
+        if (globalFilterVal === "oldest") return (a.lastSeen || 0) - (b.lastSeen || 0);
+        if (globalFilterVal === "most-profitable") return parseFloat(b.plToday || 0) - parseFloat(a.plToday || 0);
+        if (globalFilterVal === "most-loss") return parseFloat(a.plToday || 0) - parseFloat(b.plToday || 0);
+        if (globalFilterVal === "profit-alltime") return parseFloat(b.plAllTime || 0) - parseFloat(a.plAllTime || 0);
+        if (globalFilterVal === "loss-alltime") return parseFloat(a.plAllTime || 0) - parseFloat(b.plAllTime || 0);
+        if (globalFilterVal === "highest-balance") return parseFloat(b.balance || 0) - parseFloat(a.balance || 0);
+        if (globalFilterVal === "lowest-balance") return parseFloat(a.balance || 0) - parseFloat(b.balance || 0);
+        return 0;
+    });
+
+    list = list.filter(a => {
         if (search && !a.account.toLowerCase().includes(search.toLowerCase()) && !(a.broker||"").toLowerCase().includes(search.toLowerCase())) return false;
         return true;
     });

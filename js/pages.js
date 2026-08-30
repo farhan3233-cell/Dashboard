@@ -5,7 +5,27 @@ function renderAccounts() {
     const filterSt = (document.getElementById("acc-filter-status")||{}).value||"";
     const filterTy = (document.getElementById("acc-filter-type")||{}).value||"";
     
-    let list = cachedAccounts.filter(a => {
+    const filterSelect = document.getElementById("global-filter");
+    const globalFilterVal = filterSelect ? filterSelect.value : "default";
+
+    let list = [...cachedAccounts];
+    if (globalFilterVal === "active-only") {
+        list = list.filter(a => (a.status || "Active").toLowerCase() === "active");
+    }
+    
+    list.sort((a, b) => {
+        if (globalFilterVal === "latest") return (b.lastSeen || 0) - (a.lastSeen || 0);
+        if (globalFilterVal === "oldest") return (a.lastSeen || 0) - (b.lastSeen || 0);
+        if (globalFilterVal === "most-profitable") return parseFloat(b.plToday || 0) - parseFloat(a.plToday || 0);
+        if (globalFilterVal === "most-loss") return parseFloat(a.plToday || 0) - parseFloat(b.plToday || 0);
+        if (globalFilterVal === "profit-alltime") return parseFloat(b.plAllTime || 0) - parseFloat(a.plAllTime || 0);
+        if (globalFilterVal === "loss-alltime") return parseFloat(a.plAllTime || 0) - parseFloat(b.plAllTime || 0);
+        if (globalFilterVal === "highest-balance") return parseFloat(b.balance || 0) - parseFloat(a.balance || 0);
+        if (globalFilterVal === "lowest-balance") return parseFloat(a.balance || 0) - parseFloat(b.balance || 0);
+        return 0;
+    });
+
+    list = list.filter(a => {
         const holderName = a.holderName || a.name || ("Account #" + a.account);
         if(search && !a.account.toLowerCase().includes(search.toLowerCase()) && !holderName.toLowerCase().includes(search.toLowerCase())) return false;
         if(filterSt && (a.status||"active").toLowerCase()!==filterSt) return false;

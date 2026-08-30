@@ -102,10 +102,21 @@
                     <span id="header-date"></span>
                     <i class="ph ph-caret-down"></i>
                 </button>
-                <button class="btn btn-outline">
-                    <i class="ph ph-funnel"></i>
-                    <span>Filters</span>
-                </button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph ph-funnel" style="color:var(--text-secondary);"></i>
+                    <select id="global-filter" class="filter-select" style="min-width: 170px;">
+                        <option value="default">Default Sort</option>
+                        <option value="latest">Latest Updated</option>
+                        <option value="oldest">Oldest Updated</option>
+                        <option value="most-profitable">Most Profitable (Today)</option>
+                        <option value="most-loss">Most Loss (Today)</option>
+                        <option value="profit-alltime">Most Profitable (All Time)</option>
+                        <option value="loss-alltime">Most Loss (All Time)</option>
+                        <option value="highest-balance">Highest Balance</option>
+                        <option value="lowest-balance">Lowest Balance</option>
+                        <option value="active-only">Show Active Only</option>
+                    </select>
+                </div>
             </div>
         </header>
 
