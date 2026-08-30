@@ -93,6 +93,7 @@ def serve_static(path):
 
 # ── EA → Server: Master update endpoint ───────────────────────────────────────
 @app.route('/api/update_account', methods=['POST'])
+@app.route('/update_account', methods=['POST'])
 def update_account():
     try:
         data = request.get_json(force=True, silent=True)
@@ -140,10 +141,12 @@ def update_account():
 
 # ── GET endpoints ──────────────────────────────────────────────────────────────
 @app.route('/api/accounts', methods=['GET'])
+@app.route('/accounts', methods=['GET'])
 def get_accounts():
     return jsonify({"status": "success", "data": list(accounts_db.values())}), 200
 
 @app.route('/api/positions', methods=['GET'])
+@app.route('/positions', methods=['GET'])
 def get_positions():
     all_positions = []
     for acc_id, positions in positions_db.items():
@@ -154,6 +157,7 @@ def get_positions():
     return jsonify({"status": "success", "data": all_positions}), 200
 
 @app.route('/api/orders', methods=['GET'])
+@app.route('/orders', methods=['GET'])
 def get_orders():
     all_orders = []
     for acc_id, orders in orders_db.items():
@@ -164,6 +168,7 @@ def get_orders():
     return jsonify({"status": "success", "data": all_orders}), 200
 
 @app.route('/api/history', methods=['GET'])
+@app.route('/history', methods=['GET'])
 def get_history():
     all_history = []
     for acc_id, deals in history_db.items():
@@ -174,10 +179,12 @@ def get_history():
     return jsonify({"status": "success", "data": all_history}), 200
 
 @app.route('/api/alerts', methods=['GET'])
+@app.route('/alerts', methods=['GET'])
 def get_alerts():
     return jsonify({"status": "success", "data": alerts_db}), 200
 
 @app.route('/api/summary', methods=['GET'])
+@app.route('/summary', methods=['GET'])
 def get_summary():
     """Aggregated summary for dashboard cards"""
     accounts = list(accounts_db.values())
