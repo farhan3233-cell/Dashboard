@@ -136,7 +136,8 @@ def update_account():
 @app.route('/api/accounts', methods=['GET'])
 @app.route('/accounts', methods=['GET'])
 def get_accounts():
-    return jsonify({"status": "success", "data": list(accounts_db.values())}), 200
+    filtered_accounts = [a for k, a in accounts_db.items() if str(k) not in ('888888', '999999')]
+    return jsonify({"status": "success", "data": filtered_accounts}), 200
 
 @app.route('/api/positions', methods=['GET'])
 @app.route('/positions', methods=['GET'])
@@ -200,6 +201,18 @@ def get_summary():
             "openPositions":   total_positions,
         }
     }), 200
+
+# ── Delete Account Endpoint ───────────────────────────────────────────────────
+@app.route('/api/delete_account/<account_id>', methods=['DELETE', 'POST', 'GET'])
+@app.route('/delete_account/<account_id>', methods=['DELETE', 'POST', 'GET'])
+def delete_account(account_id):
+    acc_str = str(account_id)
+    accounts_db.pop(acc_str, None)
+    positions_db.pop(acc_str, None)
+    orders_db.pop(acc_str, None)
+    history_db.pop(acc_str, None)
+    save_db()
+    return jsonify({"status": "success", "message": f"Account {acc_str} deleted"}), 200
 
 # ── Static file serving & fallback ───────────────────────────────────────────
 @app.route('/', methods=['GET', 'POST', 'OPTIONS'])
