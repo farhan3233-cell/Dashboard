@@ -189,6 +189,11 @@ void SendFullTelemetry() {
     if (res == 200 || res == 201) {
         Print("Synced account ", accountId, " (Holder: '", holderName, "', Broker: '", broker, "') | Positions: ", openPos, " | Orders: ", totalOrders);
     } else {
-        Print("Sync failed. Error: ", GetLastError(), " | HTTP: ", res);
+        int err = GetLastError();
+        if (err == 4014) {
+            Print("Sync failed (Error 4014). URL blocked by MT5! Add 'https://dashboard-ten-delta-53.vercel.app' in MT5: Tools -> Options -> Expert Advisors -> Allow WebRequest!");
+        } else {
+            Print("Sync failed. Error: ", err, " | HTTP: ", res);
+        }
     }
 }
