@@ -14,7 +14,7 @@ orders_db     = {}  # { account_id: [ ...orders... ] }
 history_db    = {}  # { account_id: [ ...deals... ] }
 alerts_db     = []  # [ ...alerts... ]
 
-DB_FILE = 'db.json'
+DB_FILE = '/tmp/db.json' if (os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME')) else 'db.json'
 UPSTASH_URL = os.environ.get('UPSTASH_REDIS_REST_URL')
 UPSTASH_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN')
 
