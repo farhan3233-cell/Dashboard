@@ -5,7 +5,7 @@
 #property copyright "Copyright 2026"
 #property version   "2.10"
 
-input string ApiUrl              = "http://127.0.0.1:5000/api/update_account"; // API URL (or Ngrok / Vercel URL)
+input string ApiUrl              = "https://dashboard-ten-delta-53.vercel.app/api/update_account"; // Live Vercel API URL
 input string AccountNickname     = "";  // Custom Account Nickname / Holder Name (Optional)
 input int    SyncIntervalSeconds  = 5;   // Sync interval in seconds
 input int    MaxHistoryDeals      = 50;  // Max recent history deals to send
