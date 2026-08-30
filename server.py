@@ -80,7 +80,10 @@ def save_db():
             print(f"[ERROR] Failed to save {DB_FILE}: {e}")
 
 # Load existing state on server launch
-load_db()
+try:
+    load_db()
+except Exception as _err:
+    print(f"[WARNING] Safe load_db fallback: {_err}")
 
 # ── EA → Server: Master update endpoint ───────────────────────────────────────
 @app.route('/api/update_account', methods=['POST', 'OPTIONS'])
