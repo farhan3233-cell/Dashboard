@@ -6,7 +6,11 @@ import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-app = Flask(__name__, static_folder='..', static_url_path='')
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if not os.path.exists(os.path.join(BASE_DIR, 'index.html')):
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
 CORS(app)
 
 @app.errorhandler(Exception)
@@ -29,7 +33,6 @@ DB_FILE = '/tmp/db.json' if (os.environ.get('VERCEL') or os.environ.get('AWS_LAM
 UPSTASH_URL = os.environ.get('UPSTASH_REDIS_REST_URL')
 UPSTASH_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN')
 
-# ── Data Persistence Functions ────────────────────────────────────────────────
 def load_db():
     global accounts_db, positions_db, orders_db, history_db, alerts_db
     if UPSTASH_URL and UPSTASH_TOKEN:
@@ -246,3 +249,16 @@ def set_nickname():
         save_db()
         return jsonify({"status": "success", "message": f"Updated nickname for {acc_id}"}), 200
     return jsonify({"status": "error", "message": "Account not found or invalid name"}), 400
+
+# ── Static file serving & SPA fallback ─────────────────────────────────────────
+@app.route('/', methods=['GET'])
+@app.route('/index.html', methods=['GET'])
+def index():
+    return send_from_directory(BASE_DIR, 'index.html')
+
+@app.route('/<path:filename>', methods=['GET'])
+def serve_static(filename):
+    file_path = os.path.join(BASE_DIR, filename)
+    if os.path.exists(file_path):
+        return send_from_directory(BASE_DIR, filename)
+    return send_from_directory(BASE_DIR, 'index.html')
