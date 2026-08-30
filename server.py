@@ -206,8 +206,10 @@ def get_summary():
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/<path:path>', methods=['GET'])
+@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
 def serve_static(path):
+    if request.method in ('POST', 'OPTIONS') and 'update_account' in path:
+        return update_account()
     if os.path.exists(path):
         return send_from_directory('.', path)
     return send_from_directory('.', 'index.html')
