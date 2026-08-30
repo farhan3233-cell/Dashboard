@@ -234,6 +234,7 @@ function renderProfitSharing() {
     let totalGross = 0, totalOur = 0, totalClient = 0, profitCount = 0;
 
     const rowsHtml = list.map(a => {
+        const holderName = a.holderName || a.name || ("Account #" + a.account);
         const bal = parseFloat(a.balance||0);
         let gross = 0;
         if (period === "today") gross = parseFloat(a.plToday||0);
@@ -252,6 +253,7 @@ function renderProfitSharing() {
         }
 
         return `<tr>
+            <td><span class="account-name font-weight-bold" style="font-weight:600;color:var(--text-main);">${holderName}</span></td>
             <td><div class="account-cell"><span class="account-name">${a.account}</span><span class="account-type">${a.type||"Real"}</span></div></td>
             <td><b>${a.broker||"—"}</b></td>
             <td>${fmtPlain$(bal)}</td>

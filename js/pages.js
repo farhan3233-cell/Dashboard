@@ -6,7 +6,8 @@ function renderAccounts() {
     const filterTy = (document.getElementById("acc-filter-type")||{}).value||"";
     
     let list = cachedAccounts.filter(a => {
-        if(search && !a.account.toLowerCase().includes(search.toLowerCase())) return false;
+        const holderName = a.holderName || a.name || ("Account #" + a.account);
+        if(search && !a.account.toLowerCase().includes(search.toLowerCase()) && !holderName.toLowerCase().includes(search.toLowerCase())) return false;
         if(filterSt && (a.status||"active").toLowerCase()!==filterSt) return false;
         if(filterTy && (a.type||"real").toLowerCase()!==filterTy) return false;
         return true;
@@ -18,21 +19,20 @@ function renderAccounts() {
     }
 
     grid.innerHTML = list.map(d => {
-        const bal=parseFloat(d.balance||0), eq=parseFloat(d.equity||0);
+        const holderName = d.holderName || d.name || ("Account #" + d.account);
+        const bal=parseFloat(d.balance||0);
         const plt=parseFloat(d.plToday||0), pla=parseFloat(d.plAllTime||0);
-        const ml=parseFloat(d.marginLevel||0), mu=parseFloat(d.marginUsed||0);
         const op=parseInt(d.openPositions||0), st=d.status||"Active";
         const bs=getBrokerStyle(d.broker);
         return `<div class="account-card">
             <div class="acc-card-header">
-                <div class="acc-card-id"><h3>${d.account}</h3><span>${d.type||"Real"}</span></div>
+                <div class="acc-card-id"><h3 style="margin-bottom:2px">${holderName}</h3><span style="font-size:12px;color:var(--text-muted)">ID: ${d.account} (${d.type||"Real"})</span></div>
                 <div class="acc-card-broker"><div class="broker-logo" style="color:${bs.color}"><i class="ph-fill ${bs.icon}"></i></div>${d.broker||"—"}</div>
             </div>
+            <div class="acc-card-row"><span class="acc-card-label">Account Holder</span><span class="acc-card-value font-weight-bold" style="font-weight:600;color:var(--text-main);">${holderName}</span></div>
             <div class="acc-card-row"><span class="acc-card-label">Balance</span><span class="acc-card-value">${fmtPlain$(bal)}</span></div>
-            <div class="acc-card-row"><span class="acc-card-label">Equity</span><span class="acc-card-value">${fmtPlain$(eq)}</span></div>
             <div class="acc-card-row"><span class="acc-card-label">P/L Today</span><span class="acc-card-value ${plt>=0?'positive':'negative'}">${fmt$(plt)}</span></div>
             <div class="acc-card-row"><span class="acc-card-label">P/L All Time</span><span class="acc-card-value ${pla>=0?'positive':'negative'}">${fmt$(pla)}</span></div>
-            <div class="acc-card-row"><span class="acc-card-label">Margin Level</span><span class="acc-card-value">${fmtPctPlain(ml)}</span></div>
             <div class="acc-card-row"><span class="acc-card-label">Open Positions</span><span class="acc-card-value">${op}</span></div>
             <div class="acc-card-row"><span class="acc-card-label">Status</span><span class="status-pill ${st.toLowerCase()}">${st}</span></div>
         </div>`;

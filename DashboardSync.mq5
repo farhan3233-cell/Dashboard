@@ -5,7 +5,8 @@
 #property copyright "Copyright 2026"
 #property version   "2.10"
 
-input string ApiUrl              = "http://127.0.0.1:5000/api/update_account"; // API URL (or Ngrok URL)
+input string ApiUrl              = "http://127.0.0.1:5000/api/update_account"; // API URL (or Ngrok / Vercel URL)
+input string AccountNickname     = "";  // Custom Account Nickname / Holder Name (Optional)
 input int    SyncIntervalSeconds  = 5;   // Sync interval in seconds
 input int    MaxHistoryDeals      = 50;  // Max recent history deals to send
 
@@ -94,6 +95,11 @@ string DealToJson(ulong ticket) {
 void SendFullTelemetry() {
     string accountId = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
     
+    // Auto-detect Account Holder Name / Nickname
+    string holderName = AccountNickname;
+    if (holderName == "") holderName = AccountInfoString(ACCOUNT_NAME);
+    if (holderName == "") holderName = "Account #" + accountId;
+
     // Auto-detect broker & account type natively from MT5
     string broker = AccountInfoString(ACCOUNT_COMPANY);
     if (broker == "") broker = AccountInfoString(ACCOUNT_SERVER);
@@ -157,17 +163,21 @@ void SendFullTelemetry() {
 
     // ── Assemble full JSON payload ─────────────────────────────────
     string json = StringFormat(
-        "{\"account\":\"%s\",\"type\":\"%s\",\"broker\":\"%s\","
+        "{\"account\":\"%s\",\"holderName\":\"%s\",\"type\":\"%s\",\"broker\":\"%s\","
         "\"balance\":%.2f,\"equity\":%.2f,"
         "\"plToday\":%.2f,\"plTodayPct\":%.4f,"
         "\"plAllTime\":%.2f,\"plAllTimePct\":%.4f,"
         "\"marginUsed\":%.2f,\"marginFree\":%.2f,\"marginLevel\":%.2f,"
         "\"openPositions\":%d,\"status\":\"Active\","
         "\"positions\":%s,\"orders\":%s,\"history\":%s}",
-        accountId, accType, broker,
+        accountId, holderName, accType, broker,
         balance, equity,
         plToday, plTodayPct,
         plAllTime, plAllTimePct,
+        marginUsed, marginFree, marginLevel,
+        openPos,
+        positionsJson, ordersJson, historyJson
+    );
         marginUsed, marginFree, marginLevel,
         openPos,
         positionsJson, ordersJson, historyJson
