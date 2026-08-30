@@ -2,11 +2,21 @@ import os
 import json
 import time
 import requests
+import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    return jsonify({
+        "status": "error",
+        "message": str(e),
+        "traceback": traceback.format_exc(),
+        "path": request.path
+    }), 500
 
 # ── In-memory data stores ──────────────────────────────────────────────────────
 accounts_db   = {}  # { account_id: { ...account_info... } }
