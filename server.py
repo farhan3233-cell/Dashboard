@@ -214,6 +214,19 @@ def delete_account(account_id):
     save_db()
     return jsonify({"status": "success", "message": f"Account {acc_str} deleted"}), 200
 
+# ── Set Nickname Endpoint ─────────────────────────────────────────────────────
+@app.route('/api/set_nickname', methods=['POST', 'OPTIONS'])
+@app.route('/set_nickname', methods=['POST', 'OPTIONS'])
+def set_nickname():
+    data = request.get_json(force=True, silent=True) or {}
+    acc_id = str(data.get('account', ''))
+    nickname = str(data.get('holderName', '')).strip()
+    if acc_id and nickname and acc_id in accounts_db:
+        accounts_db[acc_id]['holderName'] = nickname
+        save_db()
+        return jsonify({"status": "success", "message": f"Updated nickname for {acc_id}"}), 200
+    return jsonify({"status": "error", "message": "Account not found or invalid name"}), 400
+
 # ── Static file serving & fallback ───────────────────────────────────────────
 @app.route('/', methods=['GET', 'POST', 'OPTIONS'])
 def index():

@@ -53,7 +53,12 @@ function renderDashboard() {
         const bs = getBrokerStyle(d.broker);
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td><span class="account-name font-weight-bold" style="font-weight:600;color:var(--text-main);">${holderName}</span></td>
+            <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <span class="account-name font-weight-bold" style="font-weight:600;color:var(--text-main);">${holderName}</span>
+                    <i class="ph ph-pencil-simple" title="Edit Holder Name" style="cursor:pointer;color:var(--text-muted);font-size:14px" onclick="editAccountNickname('${d.account}', '${holderName.replace(/'/g, "\\'")}')"></i>
+                </div>
+            </td>
             <td><div class="account-cell"><span class="account-name">${d.account}</span><span class="account-type">${d.type||"Real"}</span></div></td>
             <td><div class="broker-cell"><div class="broker-logo" style="color:${bs.color}"><i class="ph-fill ${bs.icon}"></i></div><span>${d.broker||"—"}</span></div></td>
             <td>${fmtPlain$(bal)}</td>
@@ -137,3 +142,27 @@ document.addEventListener("DOMContentLoaded", () => {
         searchInput.addEventListener("input", renderDashboard);
     }
 });
+
+async function editAccountNickname(accountId, currentName) {
+    const defaultVal = currentName.startsWith('Account #') ? '' : currentName;
+    const newName = prompt(`Enter Account Holder Name / Nickname for Account #${accountId}:`, defaultVal);
+    if (newName !== null && newName.trim() !== "") {
+        const cleaned = newName.trim();
+        try {
+            const res = await fetch('/api/set_nickname', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ account: accountId, holderName: cleaned })
+            });
+            if (res.ok) {
+                const acc = cachedAccounts.find(a => String(a.account) === String(accountId));
+                if (acc) acc.holderName = cleaned;
+                renderDashboard();
+                if (typeof renderAccounts === 'function') renderAccounts();
+                if (typeof renderProfitSharing === 'function') renderProfitSharing();
+            }
+        } catch (e) {
+            console.error('Error setting nickname:', e);
+        }
+    }
+}

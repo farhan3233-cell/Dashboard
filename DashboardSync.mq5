@@ -192,7 +192,7 @@ void SendFullTelemetry() {
     int res = WebRequest("POST", ApiUrl, headers, 5000, data, result, resultHeaders);
 
     if (res == 200 || res == 201) {
-        Print("Synced account ", accountId, " (", broker, ") | Positions: ", openPos, " | Orders: ", totalOrders);
+        Print("Synced account ", accountId, " (Holder: '", holderName, "', Broker: '", broker, "') | Positions: ", openPos, " | Orders: ", totalOrders);
     } else {
         Print("Sync failed. Error: ", GetLastError(), " | HTTP: ", res);
     }
