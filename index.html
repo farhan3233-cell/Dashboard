@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-container">
+
+    <!-- ═══ SIDEBAR ═══════════════════════════════════════════════ -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="ph-fill ph-trend-up"></i>
+                <span>Admin Dashboard</span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard">
+                <i class="ph ph-squares-four"></i><span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-page="accounts">
+                <i class="ph ph-users"></i><span>Accounts</span>
+            </a>
+            <a href="#" class="nav-item" data-page="sharing">
+                <i class="ph ph-scales"></i><span>Profit Sharing</span>
+            </a>
+            <a href="#" class="nav-item" data-page="positions">
+                <i class="ph ph-crosshair"></i><span>Positions</span>
+            </a>
+            <a href="#" class="nav-item" data-page="orders">
+                <i class="ph ph-arrows-left-right"></i><span>Orders</span>
+            </a>
+            <a href="#" class="nav-item" data-page="transactions">
+                <i class="ph ph-list-dashes"></i><span>Transactions</span>
+            </a>
+            <a href="#" class="nav-item" data-page="performance">
+                <i class="ph ph-chart-bar"></i><span>Performance</span>
+            </a>
+            <a href="#" class="nav-item" data-page="risk">
+                <i class="ph ph-shield-warning"></i><span>Risk</span>
+            </a>
+            <a href="#" class="nav-item" data-page="alerts">
+                <i class="ph ph-bell"></i><span>Alerts</span>
+            </a>
+            <a href="#" class="nav-item" data-page="reports">
+                <i class="ph ph-file-text"></i><span>Reports</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings">
+                <i class="ph ph-gear"></i><span>Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="dark-mode-toggle">
+                <span>Dark Mode</span>
+                <label class="switch">
+                    <input type="checkbox" id="dark-mode-toggle">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="user-profile">
+                <div class="avatar">FS</div>
+                <div class="user-info">
+                    <div class="user-name">Farhan Sayyed</div>
+                    <div class="user-role">Admin</div>
+                </div>
+                <i class="ph ph-caret-down"></i>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ═══ MAIN CONTENT ══════════════════════════════════════════ -->
+    <main class="main-content">
+
+        <!-- Shared Header -->
+        <header class="top-header">
+            <div class="header-titles">
+                <h1 id="page-title">Welcome Mr Farhan</h1>
+                <p id="page-subtitle">Overview of all trading accounts</p>
+            </div>
+            <div class="header-actions">
+                <div class="connection-status">
+                    <span class="status-dot" id="conn-dot"></span>
+                    <span id="conn-label">Connecting...</span>
+                </div>
+                <div class="auto-refresh">
+                    <i class="ph ph-arrows-clockwise"></i>
+                    <span>Auto Refresh</span>
+                    <label class="switch">
+                        <input type="checkbox" id="auto-refresh-toggle" checked>
+                        <span class="slider round blue"></span>
+                    </label>
+                </div>
+                <button class="btn btn-outline date-picker">
+                    <i class="ph ph-calendar-blank"></i>
+                    <span id="header-date"></span>
+                    <i class="ph ph-caret-down"></i>
+                </button>
+                <button class="btn btn-outline">
+                    <i class="ph ph-funnel"></i>
+                    <span>Filters</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ─── PAGE: DASHBOARD ─────────────────────────────────── -->
+        <div id="page-dashboard" class="page active">
+            <section class="stat-cards">
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Total Accounts</span>
+                        <div class="stat-icon blue"><i class="ph ph-users-three"></i></div>
+                    </div>
+                    <div class="stat-value" id="stat-total-accounts">—</div>
+                    <div class="stat-subtitle">
+                        <span id="stat-active-accounts">Active: —</span>
+                        <span id="stat-inactive-accounts">Inactive: —</span>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Total Balance</span>
+                        <div class="stat-icon green"><i class="ph ph-currency-dollar"></i></div>
+                    </div>
+                    <div class="stat-value" id="stat-total-balance">—</div>
+                    <div class="stat-subtitle"><span id="stat-total-equity">Equity —</span></div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Total P/L (Today)</span>
+                        <div class="stat-icon light-green"><i class="ph ph-trend-up"></i></div>
+                    </div>
+                    <div class="stat-value" id="stat-pl-today">—</div>
+                    <div class="stat-subtitle"><span id="stat-pl-today-pct">—</span></div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Total P/L (All Time)</span>
+                        <div class="stat-icon light-blue"><i class="ph ph-chart-line-up"></i></div>
+                    </div>
+                    <div class="stat-value" id="stat-pl-alltime">—</div>
+                    <div class="stat-subtitle"><span id="stat-pl-alltime-pct">—</span></div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Open Positions</span>
+                        <div class="stat-icon purple"><i class="ph ph-briefcase"></i></div>
+                    </div>
+                    <div class="stat-value" id="stat-open-positions">—</div>
+                    <div class="stat-subtitle"><span id="stat-positions-accounts">Across — Accounts</span></div>
+                </div>
+            </section>
+
+            <section class="card table-card">
+                <div class="table-header">
+                    <h2>Accounts</h2>
+                    <div class="search-box">
+                        <i class="ph ph-magnifying-glass"></i>
+                        <input type="text" id="accounts-search" placeholder="Search account...">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="accounts-table">
+                        <thead><tr>
+                            <th>Account</th><th>Broker</th><th>Balance</th><th>Equity</th>
+                            <th>P/L (Today)</th><th>P/L (All Time)</th>
+                            <th>Margin Used</th><th>Margin Level</th><th>Status</th><th>Actions</th>
+                        </tr></thead>
+                        <tbody id="dashboard-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <span class="showing-text" id="dashboard-showing">No accounts connected</span>
+                </div>
+            </section>
+
+            <section class="bottom-highlights">
+                <div class="card highlight-item">
+                    <span class="highlight-label">Most Profitable</span>
+                    <div class="highlight-data">
+                        <span class="highlight-name" id="hl-most-profitable-name">—</span>
+                        <span class="highlight-value" id="hl-most-profitable-val">—</span>
+                    </div>
+                </div>
+                <div class="card highlight-item">
+                    <span class="highlight-label">Top Gainer (All Time)</span>
+                    <div class="highlight-data">
+                        <span class="highlight-name" id="hl-top-gainer-name">—</span>
+                        <span class="highlight-value" id="hl-top-gainer-val">—</span>
+                    </div>
+                </div>
+                <div class="card highlight-item">
+                    <span class="highlight-label">Highest Margin Level</span>
+                    <div class="highlight-data">
+                        <span class="highlight-name" id="hl-margin-name">—</span>
+                        <span class="highlight-value" id="hl-margin-val">—</span>
+                    </div>
+                </div>
+                <div class="card highlight-item">
+                    <span class="highlight-label">Needs Attention</span>
+                    <div class="highlight-data">
+                        <span class="highlight-value" id="hl-attention">—</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ─── PAGE: ACCOUNTS ──────────────────────────────────── -->
+        <div id="page-accounts" class="page">
+            <div class="page-toolbar">
+                <div class="search-box">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="acc-search" placeholder="Search accounts...">
+                </div>
+                <div class="toolbar-filters">
+                    <select id="acc-filter-status" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <select id="acc-filter-type" class="filter-select">
+                        <option value="">All Types</option>
+                        <option value="real">Real</option>
+                        <option value="demo">Demo</option>
+                    </select>
+                </div>
+            </div>
+            <div id="accounts-cards-grid" class="accounts-grid"></div>
+        </div>
+
+        <!-- ─── PAGE: POSITIONS ─────────────────────────────────── -->
+        <div id="page-positions" class="page">
+            <div class="page-toolbar">
+                <div class="search-box">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="pos-search" placeholder="Search symbol...">
+                </div>
+                <div class="toolbar-filters">
+                    <select id="pos-filter-type" class="filter-select">
+                        <option value="">All Types</option>
+                        <option value="Buy">Buy</option>
+                        <option value="Sell">Sell</option>
+                    </select>
+                </div>
+                <div class="positions-summary-pills" id="positions-summary-pills"></div>
+            </div>
+            <section class="card table-card" style="margin-top:0">
+                <div class="table-responsive">
+                    <table class="accounts-table">
+                        <thead><tr>
+                            <th>Ticket</th><th>Account</th><th>Symbol</th><th>Type</th>
+                            <th>Lots</th><th>Open Price</th><th>Current Price</th>
+                            <th>S/L</th><th>T/P</th><th>Swap</th><th>Profit</th>
+                        </tr></thead>
+                        <tbody id="positions-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <span class="showing-text" id="positions-showing">No open positions</span>
+                </div>
+            </section>
+        </div>
+
+        <!-- ─── PAGE: ORDERS ────────────────────────────────────── -->
+        <div id="page-orders" class="page">
+            <div class="page-toolbar">
+                <div class="search-box">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="ord-search" placeholder="Search symbol...">
+                </div>
+                <div class="toolbar-filters">
+                    <select id="ord-filter-type" class="filter-select">
+                        <option value="">All Types</option>
+                        <option value="Buy Limit">Buy Limit</option>
+                        <option value="Sell Limit">Sell Limit</option>
+                        <option value="Buy Stop">Buy Stop</option>
+                        <option value="Sell Stop">Sell Stop</option>
+                    </select>
+                </div>
+            </div>
+            <section class="card table-card" style="margin-top:0">
+                <div class="table-responsive">
+                    <table class="accounts-table">
+                        <thead><tr>
+                            <th>Ticket</th><th>Account</th><th>Symbol</th><th>Type</th>
+                            <th>Lots</th><th>Order Price</th><th>S/L</th><th>T/P</th>
+                        </tr></thead>
+                        <tbody id="orders-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <span class="showing-text" id="orders-showing">No pending orders</span>
+                </div>
+            </section>
+        </div>
+
+        <!-- ─── PAGE: TRANSACTIONS ──────────────────────────────── -->
+        <div id="page-transactions" class="page">
+            <div class="page-toolbar">
+                <div class="search-box">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="tx-search" placeholder="Search symbol...">
+                </div>
+                <div class="toolbar-filters">
+                    <select id="tx-filter-type" class="filter-select">
+                        <option value="">All Types</option>
+                        <option value="Buy">Buy</option>
+                        <option value="Sell">Sell</option>
+                    </select>
+                </div>
+            </div>
+            <section class="card table-card" style="margin-top:0">
+                <div class="table-responsive">
+                    <table class="accounts-table">
+                        <thead><tr>
+                            <th>Ticket</th><th>Account</th><th>Symbol</th><th>Type</th>
+                            <th>Lots</th><th>Price</th><th>Profit</th><th>Swap</th><th>Time</th>
+                        </tr></thead>
+                        <tbody id="transactions-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <span class="showing-text" id="transactions-showing">No transaction history</span>
+                </div>
+            </section>
+        </div>
+
+        <!-- ─── PAGE: PERFORMANCE ───────────────────────────────── -->
+        <div id="page-performance" class="page">
+            <div class="perf-stat-grid" id="perf-stats"></div>
+            <div class="perf-two-col">
+                <div class="card perf-card">
+                    <h3 class="card-title">Profit by Account</h3>
+                    <div id="perf-by-account" class="perf-bar-list"></div>
+                </div>
+                <div class="card perf-card">
+                    <h3 class="card-title">Account Breakdown</h3>
+                    <div id="perf-breakdown" class="perf-breakdown-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── PAGE: RISK ──────────────────────────────────────── -->
+        <div id="page-risk" class="page">
+            <div class="risk-grid" id="risk-grid"></div>
+            <div class="card table-card" style="margin-top:20px">
+                <div class="table-header"><h2>Risk Exposure by Account</h2></div>
+                <div class="table-responsive">
+                    <table class="accounts-table">
+                        <thead><tr>
+                            <th>Account</th><th>Balance</th><th>Equity</th>
+                            <th>Margin Used</th><th>Margin Free</th><th>Margin Level</th>
+                            <th>Open Positions</th><th>Risk Status</th>
+                        </tr></thead>
+                        <tbody id="risk-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── PAGE: ALERTS ────────────────────────────────────── -->
+        <div id="page-alerts" class="page">
+            <div class="alerts-toolbar">
+                <div class="alerts-filter-tabs">
+                    <button class="tab-btn active" data-filter="all">All</button>
+                    <button class="tab-btn" data-filter="warning">Warnings</button>
+                    <button class="tab-btn" data-filter="info">Info</button>
+                    <button class="tab-btn" data-filter="success">Success</button>
+                </div>
+            </div>
+            <div id="alerts-list" class="alerts-list"></div>
+        </div>
+
+        <!-- ─── PAGE: REPORTS ───────────────────────────────────── -->
+        <div id="page-reports" class="page">
+            <div class="reports-grid">
+                <div class="card report-card">
+                    <div class="report-icon"><i class="ph ph-file-text"></i></div>
+                    <div class="report-info">
+                        <h3>Account Summary</h3>
+                        <p>Balance, equity & P/L overview for all accounts</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="generateReport('summary')">
+                        <i class="ph ph-download-simple"></i> Generate
+                    </button>
+                </div>
+                <div class="card report-card">
+                    <div class="report-icon green"><i class="ph ph-chart-line-up"></i></div>
+                    <div class="report-info">
+                        <h3>Performance Report</h3>
+                        <p>Detailed P/L breakdown per account and symbol</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="generateReport('performance')">
+                        <i class="ph ph-download-simple"></i> Generate
+                    </button>
+                </div>
+                <div class="card report-card">
+                    <div class="report-icon orange"><i class="ph ph-shield-warning"></i></div>
+                    <div class="report-info">
+                        <h3>Risk Report</h3>
+                        <p>Margin usage, drawdown & exposure analysis</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="generateReport('risk')">
+                        <i class="ph ph-download-simple"></i> Generate
+                    </button>
+                </div>
+                <div class="card report-card">
+                    <div class="report-icon purple"><i class="ph ph-list-dashes"></i></div>
+                    <div class="report-info">
+                        <h3>Transaction History</h3>
+                        <p>Full trade history including profit and swap</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="generateReport('transactions')">
+                        <i class="ph ph-download-simple"></i> Generate
+                    </button>
+                </div>
+            </div>
+            <div id="report-output" class="card report-output" style="display:none;">
+                <div class="report-output-header">
+                    <h3 id="report-output-title">Report</h3>
+                    <button class="btn btn-outline" onclick="printReport()">
+                        <i class="ph ph-printer"></i> Print
+                    </button>
+                </div>
+                <div id="report-output-content"></div>
+            </div>
+        </div>
+
+        <!-- ─── PAGE: SETTINGS ──────────────────────────────────── -->
+        <div id="page-settings" class="page">
+            <div class="settings-layout">
+                <div class="card settings-card">
+                    <h3 class="settings-section-title"><i class="ph ph-plugs"></i> Connection</h3>
+                    <div class="settings-row">
+                        <label>API Server URL</label>
+                        <input type="text" id="setting-api-url" class="setting-input" value="http://127.0.0.1:5000">
+                    </div>
+                    <div class="settings-row">
+                        <label>Refresh Interval (seconds)</label>
+                        <input type="number" id="setting-refresh" class="setting-input" value="5" min="2" max="60">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()">
+                        <i class="ph ph-floppy-disk"></i> Save Settings
+                    </button>
+                </div>
+
+                <div class="card settings-card">
+                    <h3 class="settings-section-title"><i class="ph ph-bell"></i> Alerts</h3>
+                    <div class="settings-row toggle-row">
+                        <label>Enable Margin Level Alerts</label>
+                        <label class="switch">
+                            <input type="checkbox" id="setting-margin-alerts" checked>
+                            <span class="slider round blue"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label>Margin Level Warning Threshold (%)</label>
+                        <input type="number" id="setting-margin-threshold" class="setting-input" value="200">
+                    </div>
+                    <div class="settings-row toggle-row">
+                        <label>Enable Negative P/L Alerts</label>
+                        <label class="switch">
+                            <input type="checkbox" id="setting-pl-alerts" checked>
+                            <span class="slider round blue"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card settings-card">
+                    <h3 class="settings-section-title"><i class="ph ph-palette"></i> Appearance</h3>
+                    <div class="settings-row toggle-row">
+                        <label>Dark Mode</label>
+                        <label class="switch">
+                            <input type="checkbox" id="setting-dark-mode">
+                            <span class="slider round blue"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card settings-card">
+                    <h3 class="settings-section-title"><i class="ph ph-info"></i> EA Setup Guide</h3>
+                    <div class="ea-guide">
+                        <div class="ea-step">
+                            <span class="step-num">1</span>
+                            <div>
+                                <strong>Copy EA file</strong>
+                                <p>Copy <code>DashboardSync.ex5</code> to your MT5 <code>MQL5/Experts</code> folder</p>
+                            </div>
+                        </div>
+                        <div class="ea-step">
+                            <span class="step-num">2</span>
+                            <div>
+                                <strong>Allow WebRequest</strong>
+                                <p>In MT5: Tools → Options → Expert Advisors → Allow WebRequest for listed URL → add your server URL</p>
+                            </div>
+                        </div>
+                        <div class="ea-step">
+                            <span class="step-num">3</span>
+                            <div>
+                                <strong>Attach EA to chart</strong>
+                                <p>Drag EA onto any chart, set <code>ApiUrl</code> in Inputs, enable Algo Trading</p>
+                            </div>
+                        </div>
+                        <div class="ea-step">
+                            <span class="step-num">4</span>
+                            <div>
+                                <strong>Use Ngrok for remote access</strong>
+                                <p>Run <code>ngrok http 5000</code> and use the Ngrok URL in your EA's ApiUrl input</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── PAGE: PROFIT SHARING ────────────────────────────── -->
+        <div id="page-sharing" class="page">
+            <div class="page-toolbar">
+                <div class="search-box">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="sharing-search" placeholder="Search account or broker...">
+                </div>
+                <div class="toolbar-filters">
+                    <select id="sharing-period" class="filter-select">
+                        <option value="today">Today's Profit</option>
+                        <option value="weekly" selected>Weekly Profit</option>
+                        <option value="alltime">All-Time Profit</option>
+                    </select>
+                </div>
+            </div>
+
+            <section class="stat-cards">
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Total Gross Profit</span>
+                        <div class="stat-icon green"><i class="ph ph-currency-dollar"></i></div>
+                    </div>
+                    <div class="stat-value" id="stat-sharing-gross">$0.00</div>
+                    <div class="stat-subtitle"><span>Across all accounts</span></div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Our Share (30%)</span>
+                        <div class="stat-icon blue"><i class="ph ph-scales"></i></div>
+                    </div>
+                    <div class="stat-value positive" id="stat-sharing-our">$0.00</div>
+                    <div class="stat-subtitle"><span>30% Company Commission</span></div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Client Share (70%)</span>
+                        <div class="stat-icon purple"><i class="ph ph-user-check"></i></div>
+                    </div>
+                    <div class="stat-value" id="stat-sharing-client">$0.00</div>
+                    <div class="stat-subtitle"><span>70% Client Net Share</span></div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-title">Profitable Accounts</span>
+                        <div class="stat-icon light-green"><i class="ph ph-users-three"></i></div>
+                    </div>
+                    <div class="stat-value" id="stat-sharing-count">0</div>
+                    <div class="stat-subtitle"><span>Accounts in profit</span></div>
+                </div>
+            </section>
+
+            <section class="card table-card" style="margin-top:0">
+                <div class="table-header">
+                    <h2>Weekly 70 / 30 Profit Split Breakdown</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="accounts-table">
+                        <thead><tr>
+                            <th>Account</th><th>Broker</th><th>Balance</th>
+                            <th>Gross Profit</th><th>Our Share (30%)</th><th>Client Share (70%)</th>
+                            <th>Status</th>
+                        </tr></thead>
+                        <tbody id="sharing-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <span class="showing-text" id="sharing-showing">No accounts</span>
+                </div>
+            </section>
+        </div>
+
+    </main>
+</div>
+<script src="js/utils.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/pages2.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
