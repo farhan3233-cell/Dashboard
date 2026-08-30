@@ -178,10 +178,6 @@ void SendFullTelemetry() {
         openPos,
         positionsJson, ordersJson, historyJson
     );
-        marginUsed, marginFree, marginLevel,
-        openPos,
-        positionsJson, ordersJson, historyJson
-    );
 
     // ── Send via WebRequest ────────────────────────────────────────
     char data[];
