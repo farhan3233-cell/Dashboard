@@ -1,8 +1,1 @@
-{
-  "rewrites": [
-    {
-      "source": "/api/delete_account/:account_id",
-      "destination": "/api/delete_account?account_id=:account_id"
-    }
-  ]
-}
+{}
