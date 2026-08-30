@@ -202,8 +202,10 @@ def get_summary():
     }), 200
 
 # ── Static file serving & fallback ───────────────────────────────────────────
-@app.route('/')
+@app.route('/', methods=['GET', 'POST', 'OPTIONS'])
 def index():
+    if request.method in ('POST', 'OPTIONS'):
+        return update_account()
     return send_from_directory('.', 'index.html')
 
 @app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
