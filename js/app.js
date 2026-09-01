@@ -42,6 +42,31 @@ async function fetchJSON(url) {
     } catch(e) { console.error(url, e); return null; }
 }
 
+function mergeAccounts(existing, incoming) {
+    if (!existing || existing.length === 0) return incoming || [];
+    if (!incoming || incoming.length === 0) {
+        return existing.map(a => ({ ...a, status: 'Disconnected' }));
+    }
+
+    const incomingMap = new Map();
+    incoming.forEach(a => incomingMap.set(String(a.account), a));
+
+    const merged = existing.map(oldAcc => {
+        const accId = String(oldAcc.account);
+        if (incomingMap.has(accId)) {
+            const fresh = incomingMap.get(accId);
+            incomingMap.delete(accId);
+            return fresh;
+        } else {
+            return { ...oldAcc, status: 'Disconnected' };
+        }
+    });
+
+    incomingMap.forEach(newAcc => merged.push(newAcc));
+    merged.sort((a, b) => String(a.account || '').localeCompare(String(b.account || '')));
+    return merged;
+}
+
 async function refreshAll() {
     const [acc, pos, ord, hist] = await Promise.all([
         fetchJSON('/api/accounts'),
@@ -49,10 +74,10 @@ async function refreshAll() {
         fetchJSON('/api/orders'),
         fetchJSON('/api/history')
     ]);
-    cachedAccounts = acc || [];
-    cachedPositions = pos || [];
-    cachedOrders = ord || [];
-    cachedHistory = hist || [];
+    cachedAccounts = mergeAccounts(cachedAccounts, acc);
+    if (pos) cachedPositions = pos;
+    if (ord) cachedOrders = ord;
+    if (hist) cachedHistory = hist;
 
     const dot = document.getElementById('conn-dot');
     const lbl = document.getElementById('conn-label');

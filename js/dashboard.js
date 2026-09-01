@@ -36,7 +36,7 @@ function renderDashboard() {
     }
 
     const tbody = document.getElementById("dashboard-table-body");
-    tbody.innerHTML = "";
+    if (!tbody) return;
 
     if (!cachedAccounts.length) {
         tbody.innerHTML = emptyRow(8, "Waiting for EA connections…", "Attach DashboardSync EA to your MT5 charts");
@@ -53,7 +53,7 @@ function renderDashboard() {
     let tBal=0, tEq=0, tPlT=0, tPlA=0, actv=0, inactv=0, tPos=0;
     let bestProfit=null, bestGainer=null, bestMargin=null, attCount=0;
 
-    accounts.forEach(d => {
+    const rowsHtml = accounts.map(d => {
         const holderName = d.holderName || d.name || ("Account #" + d.account);
         const bal = parseFloat(d.balance||0);
         const eq = parseFloat(d.equity||0);
@@ -74,8 +74,7 @@ function renderDashboard() {
         if(!bestMargin || parseFloat(d.marginLevel||0) > parseFloat(bestMargin.marginLevel||0)) bestMargin = d;
 
         const bs = getBrokerStyle(d.broker);
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
+        return `<tr>
             <td>
                 <div style="display:flex;align-items:center;gap:6px">
                     <span class="account-name font-weight-bold" style="font-weight:600;color:var(--text-main);">${holderName}</span>
@@ -96,9 +95,13 @@ function renderDashboard() {
                         <div onclick="confirmDeleteAccount('${d.account}', '${holderName.replace(/'/g, "\\'")}')" style="padding:8px 12px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;gap:8px;color:var(--red)"><i class="ph ph-trash"></i> Remove</div>
                     </div>
                 </div>
-            </td>`;
-        tbody.appendChild(tr);
-    });
+            </td>
+        </tr>`;
+    }).join('');
+
+    if (tbody.innerHTML !== rowsHtml) {
+        tbody.innerHTML = rowsHtml;
+    }
 
     // Stats
     document.getElementById("stat-total-accounts").textContent = accounts.length;
