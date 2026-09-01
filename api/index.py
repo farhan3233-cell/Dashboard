@@ -106,9 +106,13 @@ def recalc_account_pnl(account_id):
         pl_today_calc = 0.0
         pl_alltime_calc = 0.0
         for deal in all_deals:
+            deal_type = str(deal.get('type', '')).lower()
+            # ONLY include Buy and Sell trade deals. Ignore deposits, withdrawals, balance, credit, etc.
+            if deal_type not in ('buy', 'sell'):
+                continue
+            
             entry = str(deal.get('entry', '')).lower()
-            # Count closing deals (out, out_by, inout, 1, 2, 3, or empty/default)
-            if entry not in ('out', 'out_by', 'inout', '1', '2', '3', ''):
+            if entry in ('in', '0'):
                 continue
             
             deal_pnl = float(deal.get('totalPnl', 0) or 0)

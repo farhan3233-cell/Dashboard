@@ -3,7 +3,7 @@
 //|        Full sync: auto-detect broker, account type & telemetry   |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026"
-#property version   "2.20"
+#property version   "2.30"
 
 input string ApiUrl              = "https://dashboard-ten-delta-53.vercel.app/api/update_account"; // Live Vercel API URL
 input string AccountNickname     = "";   // Custom Account Nickname / Holder Name (Optional)
@@ -12,7 +12,7 @@ input int    MaxHistoryDeals      = 200; // Max recent history deals to send (la
 
 //+------------------------------------------------------------------+
 void OnInit() {
-    Print("DashboardSync v2.2 initialized. Syncing to: ", ApiUrl);
+    Print("DashboardSync v2.3 initialized. Syncing to: ", ApiUrl);
     EventSetTimer(SyncIntervalSeconds);
 }
 
@@ -61,7 +61,7 @@ string OrderToJson(int idx) {
         case ORDER_TYPE_BUY_LIMIT:   typeStr = "Buy Limit";  break;
         case ORDER_TYPE_SELL_LIMIT:  typeStr = "Sell Limit"; break;
         case ORDER_TYPE_BUY_STOP:    typeStr = "Buy Stop";   break;
-        case ORDER_TYPE_SELL_STOP:   typeStr = "Sell Stop";  break;
+        case ORDER_TYPE_SELL_STOP:  typeStr = "Sell Stop";  break;
         default:                     typeStr = "Unknown";    break;
     }
     return StringFormat(
@@ -75,8 +75,12 @@ string OrderToJson(int idx) {
 //+------------------------------------------------------------------+
 string DealToJson(ulong ticket) {
     if (!HistoryDealSelect(ticket)) return "";
-    string sym    = HistoryDealGetString(ticket, DEAL_SYMBOL);
     long   type   = HistoryDealGetInteger(ticket, DEAL_TYPE);
+
+    // ONLY export trading deals (Buy/Sell). Skip deposits/withdrawals/credits from trade history!
+    if (type != DEAL_TYPE_BUY && type != DEAL_TYPE_SELL) return "";
+
+    string sym    = HistoryDealGetString(ticket, DEAL_SYMBOL);
     long   entry  = HistoryDealGetInteger(ticket, DEAL_ENTRY);
     double lots   = HistoryDealGetDouble(ticket, DEAL_VOLUME);
     double price  = HistoryDealGetDouble(ticket, DEAL_PRICE);
@@ -84,9 +88,11 @@ string DealToJson(ulong ticket) {
     double swap   = HistoryDealGetDouble(ticket, DEAL_SWAP);
     double comm   = HistoryDealGetDouble(ticket, DEAL_COMMISSION);
     long   time   = HistoryDealGetInteger(ticket, DEAL_TIME);
-    string typeStr  = (type == DEAL_TYPE_BUY)  ? "Buy"  : (type == DEAL_TYPE_SELL) ? "Sell" : "Other";
+
+    string typeStr  = (type == DEAL_TYPE_BUY) ? "Buy" : "Sell";
     string entryStr = (entry == DEAL_ENTRY_IN) ? "in" : (entry == DEAL_ENTRY_OUT) ? "out" : (entry == DEAL_ENTRY_INOUT) ? "inout" : "out_by";
     double totalPnl = profit + swap + comm;
+
     return StringFormat(
         "{\"ticket\":%d,\"symbol\":\"%s\",\"type\":\"%s\",\"entry\":\"%s\",\"lots\":%.2f,\"price\":%.5f,\"profit\":%.2f,\"swap\":%.2f,\"commission\":%.2f,\"totalPnl\":%.2f,\"time\":%d}",
         ticket, sym, typeStr, entryStr, lots, price, profit, swap, comm, totalPnl, time
@@ -119,8 +125,7 @@ void SendFullTelemetry() {
     int    openPos     = PositionsTotal();
     int    totalOrders = OrdersTotal();
 
-    // ── Calculate REAL plToday from CLOSED deals today ─────────────
-    // today start = midnight of current broker server day
+    // ── Calculate REAL trading P/L (excluding deposits/withdrawals) ──
     MqlDateTime dtNow;
     TimeToStruct(TimeCurrent(), dtNow);
     dtNow.hour = 0; dtNow.min = 0; dtNow.sec = 0;
@@ -137,18 +142,21 @@ void SendFullTelemetry() {
     for (int i = 0; i < totalDealsAll; i++) {
         ulong  dTicket = HistoryDealGetTicket(i);
         if (!HistoryDealSelect(dTicket)) continue;
+        long   dType   = HistoryDealGetInteger(dTicket, DEAL_TYPE);
         long   dEntry  = HistoryDealGetInteger(dTicket, DEAL_ENTRY);
         long   dTime   = HistoryDealGetInteger(dTicket, DEAL_TIME);
         double dProfit = HistoryDealGetDouble(dTicket, DEAL_PROFIT);
         double dSwap   = HistoryDealGetDouble(dTicket, DEAL_SWAP);
         double dComm   = HistoryDealGetDouble(dTicket, DEAL_COMMISSION);
 
-        // Only count closing deals (OUT / OUT_BY) to avoid double counting entry legs
-        if (dEntry == DEAL_ENTRY_OUT || dEntry == DEAL_ENTRY_OUT_BY || dEntry == DEAL_ENTRY_INOUT) {
-            double dealTotal = dProfit + dSwap + dComm;
-            plAllTime += dealTotal;
-            if ((datetime)dTime >= todayStart) {
-                plToday += dealTotal;
+        // ONLY count actual trading deals (Buy/Sell). EXCLUDE capital deposits/withdrawals (DEAL_TYPE_BALANCE)!
+        if (dType == DEAL_TYPE_BUY || dType == DEAL_TYPE_SELL) {
+            if (dEntry == DEAL_ENTRY_OUT || dEntry == DEAL_ENTRY_OUT_BY || dEntry == DEAL_ENTRY_INOUT) {
+                double dealTotal = dProfit + dSwap + dComm;
+                plAllTime += dealTotal;
+                if ((datetime)dTime >= todayStart) {
+                    plToday += dealTotal;
+                }
             }
         }
     }
@@ -222,8 +230,8 @@ void SendFullTelemetry() {
     int res = WebRequest("POST", ApiUrl, headers, 5000, data, result, resultHeaders);
 
     if (res == 200 || res == 201) {
-        Print("Synced '", holderName, "' (", accountId, ") | P/L Today: $", DoubleToString(plToday, 2),
-              " | P/L All-Time: $", DoubleToString(plAllTime, 2),
+        Print("Synced '", holderName, "' (", accountId, ") | Real Trade P/L Today: $", DoubleToString(plToday, 2),
+              " | Real Trade P/L All-Time: $", DoubleToString(plAllTime, 2),
               " | Closed Deals: ", totalDealsAll, " | Open Positions: ", openPos);
     } else {
         int err = GetLastError();

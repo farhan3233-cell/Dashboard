@@ -56,8 +56,10 @@ function computePeriodPL(fromTs, toTs) {
 
     if (history.length > 0) {
         history.forEach(d => {
+            const dealType = String(d.type || '').toLowerCase();
+            if (dealType !== 'buy' && dealType !== 'sell') return;
+
             const entry = String(d.entry || '').toLowerCase();
-            // Filter out purely opening legs if entry string is present and equals 'in' or '0'
             if (entry === 'in' || entry === '0') return;
 
             const t = parseInt(d.time || 0);
@@ -192,6 +194,8 @@ function updateAllTimePLFromHistory() {
 
     if (typeof cachedHistory !== 'undefined' && cachedHistory.length > 0) {
         cachedHistory.forEach(d => {
+            const dealType = String(d.type || '').toLowerCase();
+            if (dealType !== 'buy' && dealType !== 'sell') return;
             const entry = String(d.entry || '').toLowerCase();
             if (entry === 'in' || entry === '0') return;
             const pnl = (d.totalPnl !== undefined && d.totalPnl !== null)
