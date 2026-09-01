@@ -17,6 +17,12 @@ function loadClientGroups() {
     if (!Array.isArray(clientGroups)) {
         clientGroups = [];
     }
+    // Remove dummy/test "All Accounts" groups if present in user storage
+    const beforeCount = clientGroups.length;
+    clientGroups = clientGroups.filter(g => g && g.name && g.name !== 'All Accounts');
+    if (clientGroups.length !== beforeCount) {
+        saveClientGroups();
+    }
 }
 
 function saveClientGroups() {
@@ -33,6 +39,11 @@ function renderGroupsPage() {
     if (!container) return;
 
     if (currentGroupView === 'create' || currentGroupView === 'edit') {
+        // CRITICAL FIX: Do NOT destroy container if form is actively open on screen!
+        // This prevents the 5-second polling loop from clearing the user's typed name and selections.
+        if (document.getElementById('form-group-name')) {
+            return;
+        }
         renderGroupCreateForm(container);
     } else if (currentGroupView === 'detail' && selectedGroupId) {
         renderGroupDetailView(container);
@@ -327,13 +338,15 @@ function renderGroupDetailView(container) {
 function showGroupCreateForm() {
     currentGroupView = 'create';
     editingGroupId = null;
-    renderGroupsPage();
+    const container = document.getElementById('groups-page-container');
+    if (container) renderGroupCreateForm(container);
 }
 
 function showGroupEditForm(id) {
     currentGroupView = 'edit';
     editingGroupId = id;
-    renderGroupsPage();
+    const container = document.getElementById('groups-page-container');
+    if (container) renderGroupCreateForm(container);
 }
 
 function openGroupDetail(id) {
