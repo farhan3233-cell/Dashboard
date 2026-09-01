@@ -1,9 +1,10 @@
 // ── Client Groups Management Module ────────────────────────────────
 
 let clientGroups = [];
-let activeGroupId = 'all';
+let currentGroupView = 'list'; // 'list' | 'create' | 'edit' | 'detail'
+let selectedGroupId = null;
+let editingGroupId = null;
 
-// Load groups from localStorage or initialize defaults
 function loadClientGroups() {
     try {
         const stored = localStorage.getItem('trading_dashboard_client_groups');
@@ -13,17 +14,8 @@ function loadClientGroups() {
     } catch(e) {
         console.error("Failed to load client groups:", e);
     }
-
-    if (!Array.isArray(clientGroups) || clientGroups.length === 0) {
-        clientGroups = [
-            {
-                id: 'all',
-                name: 'All Accounts',
-                accounts: [],
-                isDefault: true
-            }
-        ];
-        saveClientGroups();
+    if (!Array.isArray(clientGroups)) {
+        clientGroups = [];
     }
 }
 
@@ -35,83 +27,191 @@ function saveClientGroups() {
     }
 }
 
-// Render the main Groups Page
 function renderGroupsPage() {
     loadClientGroups();
-    
-    const accounts = cachedAccounts || [];
-    renderGroupTabs();
-
-    let currentGroup = clientGroups.find(g => g.id === activeGroupId);
-    if (!currentGroup) {
-        activeGroupId = 'all';
-        currentGroup = clientGroups[0];
-    }
-
-    let groupAccounts = [];
-    if (currentGroup.id === 'all' || !currentGroup.accounts || currentGroup.accounts.length === 0) {
-        groupAccounts = accounts;
-    } else {
-        const idSet = new Set(currentGroup.accounts.map(a => String(a)));
-        groupAccounts = accounts.filter(a => idSet.has(String(a.account)));
-    }
-
-    const titleEl = document.getElementById('selected-group-title');
-    const descEl  = document.getElementById('selected-group-desc');
-    const countEl = document.getElementById('group-acc-count');
-    const actionsEl = document.getElementById('selected-group-actions');
-
-    if (titleEl) titleEl.textContent = currentGroup.name;
-    if (descEl) descEl.textContent = `Monitoring ${groupAccounts.length} selected account${groupAccounts.length !== 1 ? 's' : ''} in this client portfolio`;
-    if (countEl) countEl.textContent = groupAccounts.length;
-
-    if (actionsEl) {
-        if (currentGroup.id === 'all') {
-            actionsEl.innerHTML = `<span style="font-size:12px; color:var(--text-muted); align-self:center;">System Default Group</span>`;
-        } else {
-            actionsEl.innerHTML = `
-                <button class="btn btn-outline btn-sm" onclick="openGroupModal('${currentGroup.id}')"><i class="ph ph-pencil"></i> Edit Group</button>
-                <button class="btn btn-outline btn-sm" style="color:var(--danger);" onclick="deleteGroup('${currentGroup.id}')"><i class="ph ph-trash"></i> Delete Group</button>
-            `;
-        }
-    }
-
-    renderGroupStats(groupAccounts);
-    renderGroupAccountsTable(groupAccounts);
-}
-
-// Render tabs for switching between client groups
-function renderGroupTabs() {
-    const container = document.getElementById('groups-tabs-bar');
+    const container = document.getElementById('groups-page-container');
     if (!container) return;
 
-    container.innerHTML = clientGroups.map(g => {
-        const isActive = g.id === activeGroupId;
-        const count = (g.id === 'all' || !g.accounts || g.accounts.length === 0) 
-            ? (cachedAccounts ? cachedAccounts.length : 0)
-            : g.accounts.length;
-        
-        return `<button class="btn ${isActive ? 'btn-primary' : 'btn-outline'}" 
-            style="border-radius:20px; padding:6px 16px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;" 
-            onclick="switchClientGroup('${g.id}')">
-            <i class="ph ${g.id === 'all' ? 'ph-squares-four' : 'ph-folder-user'}"></i>
-            ${g.name} <span class="badge" style="background:${isActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-card-secondary)'}; font-size:11px;">${count}</span>
-        </button>`;
+    if (currentGroupView === 'create' || currentGroupView === 'edit') {
+        renderGroupCreateForm(container);
+    } else if (currentGroupView === 'detail' && selectedGroupId) {
+        renderGroupDetailView(container);
+    } else {
+        renderGroupsList(container);
+    }
+}
+
+// ── State 1: List of Created Client Groups ─────────────────────────
+function renderGroupsList(container) {
+    const accounts = cachedAccounts || [];
+
+    if (!clientGroups.length) {
+        container.innerHTML = `
+            <div class="card" style="padding:40px; text-align:center; max-width:600px; margin:40px auto;">
+                <div style="width:64px; height:64px; border-radius:50%; background:var(--bg-card-secondary); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                    <i class="ph ph-folder-user" style="font-size:32px; color:var(--primary);"></i>
+                </div>
+                <h2 style="margin:0 0 8px 0; font-size:20px; color:var(--text-main);">No Client Groups Created</h2>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px;">Create a client group to separate and monitor portfolio performance for specific clients.</p>
+                <button class="btn btn-primary btn-lg" onclick="showGroupCreateForm()" style="padding:12px 24px; font-size:15px;">
+                    <i class="ph ph-plus-circle"></i> Create Client Group
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    const cardsHtml = clientGroups.map(grp => {
+        const idSet = new Set((grp.accounts || []).map(a => String(a)));
+        const grpAccounts = accounts.filter(a => idSet.has(String(a.account)));
+
+        let tBal = 0, tEq = 0, tPlT = 0, tPlA = 0;
+        grpAccounts.forEach(a => {
+            tBal += parseFloat(a.balance || 0);
+            tEq  += parseFloat(a.equity || 0);
+            tPlT += parseFloat(a.plToday || 0);
+            tPlA += parseFloat(a.plAllTime || 0);
+        });
+
+        const pltSign = tPlT >= 0 ? '+' : '';
+
+        return `
+            <div class="card" style="padding:20px; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; border:1px solid var(--border-color);" onclick="openGroupDetail('${grp.id}')">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                    <div>
+                        <h3 style="margin:0; font-size:18px; color:var(--text-main); font-weight:700;">${grp.name}</h3>
+                        <span class="badge" style="background:var(--bg-card-secondary); color:var(--text-muted); font-size:12px; margin-top:4px; display:inline-block;">
+                            <i class="ph ph-users"></i> ${grpAccounts.length} Account${grpAccounts.length !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                    <div onclick="event.stopPropagation();" style="display:flex; gap:6px;">
+                        <button class="btn btn-outline btn-sm" onclick="showGroupEditForm('${grp.id}')" title="Edit Group"><i class="ph ph-pencil"></i></button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--red);" onclick="deleteGroup('${grp.id}')" title="Delete Group"><i class="ph ph-trash"></i></button>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px; background:var(--bg-card-secondary); border-radius:8px; margin-bottom:16px;">
+                    <div>
+                        <span style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Total Capital</span>
+                        <div style="font-size:16px; font-weight:700; color:var(--text-main);">$${tBal.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                    </div>
+                    <div>
+                        <span style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Today P/L</span>
+                        <div style="font-size:16px; font-weight:700;" class="${tPlT>=0?'positive':'negative'}">${pltSign}$${Math.abs(tPlT).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                    </div>
+                </div>
+
+                <button class="btn btn-outline" style="width:100%; justify-content:center;">
+                    <i class="ph ph-eye"></i> View Client Dashboard
+                </button>
+            </div>
+        `;
     }).join('');
+
+    container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+            <div>
+                <h2 style="margin:0; font-size:22px; font-weight:700; color:var(--text-main);">Client Groups (${clientGroups.length})</h2>
+                <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-muted);">Select a client group to view its dedicated dashboard and accounts</p>
+            </div>
+            <button class="btn btn-primary" onclick="showGroupCreateForm()">
+                <i class="ph ph-plus-circle"></i> Create New Group
+            </button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px; margin-bottom:32px;">
+            ${cardsHtml}
+        </div>
+
+        <div style="text-align:center; padding:20px; background:var(--card-bg); border:1px dashed var(--border-color); border-radius:12px;">
+            <button class="btn btn-primary" onclick="showGroupCreateForm()" style="padding:10px 20px;">
+                <i class="ph ph-plus-circle"></i> Create New Client Group
+            </button>
+        </div>
+    `;
 }
 
-function switchClientGroup(groupId) {
-    activeGroupId = groupId;
-    renderGroupsPage();
+// ── State 2: Create / Edit Group Form ──────────────────────────────
+function renderGroupCreateForm(container) {
+    const isEdit = currentGroupView === 'edit' && editingGroupId;
+    const targetGrp = isEdit ? clientGroups.find(g => g.id === editingGroupId) : null;
+
+    const groupName = targetGrp ? targetGrp.name : '';
+    const selectedSet = new Set(targetGrp && targetGrp.accounts ? targetGrp.accounts.map(a => String(a)) : []);
+    const allAccounts = cachedAccounts || [];
+
+    let checkboxesHtml = '';
+    if (!allAccounts.length) {
+        checkboxesHtml = `<p style="color:var(--text-muted); font-size:13px; padding:12px;">No connected accounts available. Please attach DashboardSync EA to MT5 charts first.</p>`;
+    } else {
+        checkboxesHtml = allAccounts.map(a => {
+            const accId = String(a.account);
+            const isChecked = selectedSet.has(accId);
+            const name = a.holderName || a.name || `Account #${accId}`;
+            const bal = parseFloat(a.balance || 0);
+            return `
+                <label style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--bg-card-secondary); border:1px solid var(--border-color); border-radius:8px; cursor:pointer; transition:border-color 0.2s;">
+                    <input type="checkbox" class="form-group-acc-cb" value="${accId}" ${isChecked ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--primary);">
+                    <div style="flex:1;">
+                        <strong style="color:var(--text-main); font-size:14px; display:block;">${name}</strong>
+                        <span style="font-size:12px; color:var(--text-muted);">Account ID: ${accId} | Broker: ${a.broker || 'MT5'} | Balance: $${bal.toLocaleString('en-US',{minimumFractionDigits:2})}</span>
+                    </div>
+                </label>
+            `;
+        }).join('');
+    }
+
+    container.innerHTML = `
+        <div style="margin-bottom:20px;">
+            <button class="btn btn-outline" onclick="cancelGroupForm()"><i class="ph ph-arrow-left"></i> Back to Client Groups</button>
+        </div>
+
+        <div class="card" style="max-width:700px; margin:0 auto; padding:28px;">
+            <h2 style="margin:0 0 6px 0; font-size:20px; font-weight:700; color:var(--text-main);">
+                <i class="ph ${isEdit ? 'ph-pencil' : 'ph-folder-user'}" style="margin-right:8px; color:var(--primary);"></i>
+                ${isEdit ? 'Edit Client Group' : 'Create New Client Group'}
+            </h2>
+            <p style="margin:0 0 24px 0; font-size:13px; color:var(--text-muted);">
+                Enter group name and select accounts to monitor in this client group.
+            </p>
+
+            <div style="margin-bottom:20px;">
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-main);">Client / Group Name *</label>
+                <input type="text" id="form-group-name" value="${groupName}" placeholder="e.g. Farhan Sayyed" style="width:100%; padding:12px 16px; background:var(--bg-card-secondary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-main); font-size:14px; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:24px;">
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-main);">Select Available Accounts for this Group</label>
+                <div style="display:flex; flex-direction:column; gap:10px; max-height:320px; overflow-y:auto; padding:4px 0;">
+                    ${checkboxesHtml}
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid var(--border-color); padding-top:20px;">
+                <button class="btn btn-outline" onclick="cancelGroupForm()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitGroupForm('${isEdit ? editingGroupId : ''}')" style="padding:10px 24px;">
+                    <i class="ph ph-check-circle"></i> ${isEdit ? 'Save Changes' : 'Create Group'}
+                </button>
+            </div>
+        </div>
+    `;
 }
 
-// Compute and display group stat cards
-function renderGroupStats(accounts) {
-    const grid = document.getElementById('group-stats-grid');
-    if (!grid) return;
+// ── State 3: Dashboard View for Selected Group ─────────────────────
+function renderGroupDetailView(container) {
+    const grp = clientGroups.find(g => g.id === selectedGroupId);
+    if (!grp) {
+        currentGroupView = 'list';
+        renderGroupsList(container);
+        return;
+    }
+
+    const accounts = cachedAccounts || [];
+    const idSet = new Set((grp.accounts || []).map(a => String(a)));
+    const grpAccounts = accounts.filter(a => idSet.has(String(a.account)));
 
     let tBal = 0, tEq = 0, tPlT = 0, tPlA = 0, tPos = 0, activeCount = 0;
-    accounts.forEach(a => {
+    grpAccounts.forEach(a => {
         tBal += parseFloat(a.balance || 0);
         tEq  += parseFloat(a.equity || 0);
         tPlT += parseFloat(a.plToday || 0);
@@ -123,195 +223,183 @@ function renderGroupStats(accounts) {
     const pltSign = tPlT >= 0 ? '+' : '';
     const plaSign = tPlA >= 0 ? '+' : '';
 
-    grid.innerHTML = `
-        <div class="stat-card">
-            <div class="stat-header">
-                <span class="stat-title">Group Total Balance</span>
-                <i class="ph ph-wallet icon-blue"></i>
+    const rowsHtml = grpAccounts.length === 0 
+        ? `<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">No accounts assigned to this group yet. Click "Edit Group" to add accounts.</td></tr>`
+        : grpAccounts.map(d => {
+            const holderName = d.holderName || d.name || ("Account #" + d.account);
+            const bal = parseFloat(d.balance || 0);
+            const plt = parseFloat(d.plToday || 0);
+            const pla = parseFloat(d.plAllTime || 0);
+            const pltPct = parseFloat(d.plTodayPct || 0);
+            const plaPct = parseFloat(d.plAllTimePct || 0);
+            const st = (d.status || "Active");
+            const bs = typeof getBrokerStyle === 'function' ? getBrokerStyle(d.broker) : {color:'#3b82f6', icon:'ph-bank'};
+
+            return `<tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <span class="account-name font-weight-bold" style="font-weight:600;color:var(--text-main);">${holderName}</span>
+                    </div>
+                </td>
+                <td><div class="account-cell"><span class="account-name">${d.account}</span><span class="account-type">${d.type||"Real"}</span></div></td>
+                <td><div class="broker-cell"><div class="broker-logo" style="color:${bs.color}"><i class="ph-fill ${bs.icon}"></i></div><span>${d.broker||"—"}</span></div></td>
+                <td>${fmtPlain$(bal)}</td>
+                <td><div class="pl-cell"><span class="pl-val ${plt>=0?'positive':'negative'}">${plt>=0?'+':'-'}$${Math.abs(plt).toLocaleString('en-US',{minimumFractionDigits:2})}</span><span class="pl-pct ${pltPct>=0?'positive':'negative'}">${pltPct.toFixed(2)}%</span></div></td>
+                <td><div class="pl-cell"><span class="pl-val ${pla>=0?'positive':'negative'}">${pla>=0?'+':'-'}$${Math.abs(pla).toLocaleString('en-US',{minimumFractionDigits:2})}</span><span class="pl-pct ${plaPct>=0?'positive':'negative'}">${plaPct.toFixed(2)}%</span></div></td>
+                <td><span class="status-pill ${st.toLowerCase()}">${st}</span></td>
+                <td>
+                    <button class="actions-btn" onclick="navigateTo('accounts')" title="View Account Details"><i class="ph ph-eye"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+
+    container.innerHTML = `
+        <!-- Top Toolbar -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button class="btn btn-outline" onclick="backToGroupsList()"><i class="ph ph-arrow-left"></i> All Client Groups</button>
+                <h2 style="margin:0; font-size:22px; font-weight:700; color:var(--text-main);">${grp.name}</h2>
             </div>
-            <div class="stat-value">$${tBal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-            <div class="stat-sub">Across ${accounts.length} accounts</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-header">
-                <span class="stat-title">Group Total Equity</span>
-                <i class="ph ph-currency-dollar icon-purple"></i>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-outline btn-sm" onclick="showGroupEditForm('${grp.id}')"><i class="ph ph-pencil"></i> Edit Group</button>
+                <button class="btn btn-outline btn-sm" style="color:var(--red);" onclick="deleteGroup('${grp.id}')"><i class="ph ph-trash"></i> Delete Group</button>
             </div>
-            <div class="stat-value">$${tEq.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-            <div class="stat-sub">Active Accounts: ${activeCount}/${accounts.length}</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-header">
-                <span class="stat-title">Group Today P/L</span>
-                <i class="ph ph-trend-up ${tPlT>=0?'icon-green':'icon-red'}"></i>
+
+        <!-- Dashboard Stat Cards (4 Cards) -->
+        <section class="stats-grid" style="margin-bottom:24px;">
+            <div class="card stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-title">Client Total Balance</span>
+                    <div class="stat-icon blue"><i class="ph ph-wallet"></i></div>
+                </div>
+                <div class="stat-value">$${tBal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div class="stat-subtitle"><span>Across ${grpAccounts.length} selected accounts</span></div>
             </div>
-            <div class="stat-value ${tPlT>=0?'positive':'negative'}">${pltSign}$${Math.abs(tPlT).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-            <div class="stat-sub ${tPlT>=0?'positive':'negative'}">Group daily profit/loss</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-header">
-                <span class="stat-title">Group All-Time P/L</span>
-                <i class="ph ph-trophy ${tPlA>=0?'icon-green':'icon-red'}"></i>
+
+            <div class="card stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-title">Client Total Equity</span>
+                    <div class="stat-icon purple"><i class="ph ph-currency-dollar"></i></div>
+                </div>
+                <div class="stat-value">$${tEq.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div class="stat-subtitle"><span>Active Accounts: ${activeCount}/${grpAccounts.length}</span></div>
             </div>
-            <div class="stat-value ${tPlA>=0?'positive':'negative'}">${plaSign}$${Math.abs(tPlA).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-            <div class="stat-sub">Group total realized profit</div>
-        </div>
+
+            <div class="card stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-title">Client Today's P/L</span>
+                    <div class="stat-icon ${tPlT>=0?'green':'red'}"><i class="ph ph-trend-up"></i></div>
+                </div>
+                <div class="stat-value ${tPlT>=0?'positive':'negative'}">${pltSign}$${Math.abs(tPlT).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div class="stat-subtitle"><span class="${tPlT>=0?'positive':'negative'}">Client daily closed deals</span></div>
+            </div>
+
+            <div class="card stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-title">Client All-Time P/L</span>
+                    <div class="stat-icon ${tPlA>=0?'green':'red'}"><i class="ph ph-trophy"></i></div>
+                </div>
+                <div class="stat-value ${tPlA>=0?'positive':'negative'}">${plaSign}$${Math.abs(tPlA).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div class="stat-subtitle"><span>Realized total profit</span></div>
+            </div>
+        </section>
+
+        <!-- Dashboard Accounts Table -->
+        <section class="card table-card">
+            <div class="table-header">
+                <h2>Accounts in ${grp.name} (${grpAccounts.length})</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="accounts-table">
+                    <thead><tr>
+                        <th>Account Holder</th><th>Account ID</th><th>Broker</th><th>Balance</th>
+                        <th>P/L (Today)</th><th>P/L (All Time)</th><th>Status</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        </section>
     `;
 }
 
-// Render Accounts table for selected group
-function renderGroupAccountsTable(accounts) {
-    const tbody = document.getElementById('group-accounts-table-body');
-    if (!tbody) return;
-
-    if (!accounts.length) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:40px; color:var(--text-muted);">
-            <i class="ph ph-folder-open" style="font-size:32px; display:block; margin-bottom:8px;"></i>
-            No accounts assigned to this group yet. Click "Edit Group" to add accounts.
-        </td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = accounts.map(a => {
-        const holderName = a.holderName || a.name || ("Account #" + a.account);
-        const bal = parseFloat(a.balance || 0);
-        const eq  = parseFloat(a.equity || 0);
-        const plt = parseFloat(a.plToday || 0);
-        const pla = parseFloat(a.plAllTime || 0);
-        const op  = parseInt(a.openPositions || 0);
-        const st  = (a.status || "Active");
-        const bs  = typeof getBrokerStyle === 'function' ? getBrokerStyle(a.broker) : {color:'#3b82f6', icon:'ph-bank'};
-
-        return `<tr>
-            <td>
-                <strong style="display:block; color:var(--text-main);">${holderName}</strong>
-                <span style="font-size:12px; color:var(--text-muted);">ID: ${a.account} (${a.type || 'Real'})</span>
-            </td>
-            <td>
-                <span style="display:inline-flex; align-items:center; gap:6px;">
-                    <i class="ph-fill ${bs.icon}" style="color:${bs.color}"></i> ${a.broker || 'MetaTrader 5'}
-                </span>
-            </td>
-            <td><strong>$${bal.toLocaleString('en-US', {minimumFractionDigits:2})}</strong></td>
-            <td>$${eq.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-            <td class="${plt >= 0 ? 'positive' : 'negative'}">
-                <strong>${plt >= 0 ? '+' : '-'}$${Math.abs(plt).toLocaleString('en-US', {minimumFractionDigits:2})}</strong>
-            </td>
-            <td class="${pla >= 0 ? 'positive' : 'negative'}">
-                <strong>${pla >= 0 ? '+' : '-'}$${Math.abs(pla).toLocaleString('en-US', {minimumFractionDigits:2})}</strong>
-            </td>
-            <td><span class="badge" style="background:var(--bg-card-secondary); color:var(--text-main);">${op} open</span></td>
-            <td>
-                <span class="status-badge ${st.toLowerCase() === 'active' ? 'status-active' : 'status-disconnected'}">
-                    <span class="dot"></span> ${st}
-                </span>
-            </td>
-            <td>
-                <button class="btn btn-outline btn-sm" onclick="navigateTo('accounts')" title="View Account Details">
-                    <i class="ph ph-eye"></i> View
-                </button>
-            </td>
-        </tr>`;
-    }).join('');
+// ── Control Actions ────────────────────────────────────────────────
+function showGroupCreateForm() {
+    currentGroupView = 'create';
+    editingGroupId = null;
+    renderGroupsPage();
 }
 
-// ── Group Modal Logic ──────────────────────────────────────────────
+function showGroupEditForm(id) {
+    currentGroupView = 'edit';
+    editingGroupId = id;
+    renderGroupsPage();
+}
 
-function openGroupModal(groupId = null) {
-    loadClientGroups();
-    const modal = document.getElementById('group-modal-overlay');
-    const title = document.getElementById('group-modal-title');
-    const idInput = document.getElementById('modal-group-id');
-    const nameInput = document.getElementById('modal-group-name');
-    const checkboxContainer = document.getElementById('modal-accounts-checkboxes');
+function openGroupDetail(id) {
+    currentGroupView = 'detail';
+    selectedGroupId = id;
+    renderGroupsPage();
+}
 
-    if (!modal) return;
+function backToGroupsList() {
+    currentGroupView = 'list';
+    selectedGroupId = null;
+    renderGroupsPage();
+}
 
-    let targetGroup = null;
-    if (groupId) {
-        targetGroup = clientGroups.find(g => g.id === groupId);
-    }
-
-    if (targetGroup) {
-        title.innerHTML = `<i class="ph ph-pencil"></i> Edit Client Group`;
-        idInput.value = targetGroup.id;
-        nameInput.value = targetGroup.name;
+function cancelGroupForm() {
+    if (selectedGroupId && currentGroupView === 'edit') {
+        currentGroupView = 'detail';
     } else {
-        title.innerHTML = `<i class="ph ph-folder-user"></i> Create Client Group`;
-        idInput.value = '';
-        nameInput.value = '';
+        currentGroupView = 'list';
     }
-
-    const allAccounts = cachedAccounts || [];
-    const selectedSet = new Set(targetGroup && targetGroup.accounts ? targetGroup.accounts.map(a => String(a)) : []);
-
-    if (!allAccounts.length) {
-        checkboxContainer.innerHTML = `<p style="color:var(--text-muted); font-size:13px; padding:10px;">No connected accounts available.</p>`;
-    } else {
-        checkboxContainer.innerHTML = allAccounts.map(a => {
-            const accId = String(a.account);
-            const isChecked = selectedSet.has(accId);
-            const name = a.holderName || a.name || `Account #${accId}`;
-            return `<label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; padding:8px 10px; border-radius:6px; background:var(--bg-card); border:1px solid var(--border-color);">
-                <input type="checkbox" class="group-acc-checkbox" value="${accId}" ${isChecked ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary);">
-                <span><strong>${name}</strong> (ID: ${accId} - ${a.broker || 'MT5'})</span>
-            </label>`;
-        }).join('');
-    }
-
-    modal.style.display = 'flex';
+    renderGroupsPage();
 }
 
-function closeGroupModal(e) {
-    if (e && e.target !== e.currentTarget) return;
-    const modal = document.getElementById('group-modal-overlay');
-    if (modal) modal.style.display = 'none';
-}
+function submitGroupForm(editId) {
+    const nameInput = document.getElementById('form-group-name');
+    const nameVal = nameInput ? nameInput.value.trim() : '';
 
-function saveGroupModal() {
-    const idInput = document.getElementById('modal-group-id').value;
-    const nameInput = document.getElementById('modal-group-name').value.trim();
-    if (!nameInput) {
+    if (!nameVal) {
         alert('Please enter a Group / Client Name.');
         return;
     }
 
-    const checkboxes = document.querySelectorAll('.group-acc-checkbox:checked');
+    const checkboxes = document.querySelectorAll('.form-group-acc-cb:checked');
     const selectedAccs = Array.from(checkboxes).map(cb => cb.value);
 
     loadClientGroups();
 
-    if (idInput) {
-        const grp = clientGroups.find(g => g.id === idInput);
+    if (editId) {
+        const grp = clientGroups.find(g => g.id === editId);
         if (grp) {
-            grp.name = nameInput;
+            grp.name = nameVal;
             grp.accounts = selectedAccs;
         }
+        selectedGroupId = editId;
     } else {
         const newGroup = {
             id: 'group_' + Date.now(),
-            name: nameInput,
+            name: nameVal,
             accounts: selectedAccs
         };
         clientGroups.push(newGroup);
-        activeGroupId = newGroup.id;
+        selectedGroupId = newGroup.id;
     }
 
     saveClientGroups();
-    closeGroupModal();
+    currentGroupView = 'detail';
     renderGroupsPage();
 }
 
 function deleteGroup(groupId) {
-    if (groupId === 'all') {
-        alert('Cannot delete the default All Accounts group.');
-        return;
-    }
     if (confirm('Are you sure you want to delete this client group?')) {
         loadClientGroups();
         clientGroups = clientGroups.filter(g => g.id !== groupId);
-        activeGroupId = 'all';
         saveClientGroups();
+        currentGroupView = 'list';
+        selectedGroupId = null;
         renderGroupsPage();
     }
 }
