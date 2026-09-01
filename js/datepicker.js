@@ -189,39 +189,25 @@ function updateAllTimePLFromHistory() {
     const pctEl = document.getElementById('stat-pl-alltime-pct');
     if (!valEl) return;
 
-    let total = 0;
-    let count = 0;
-
-    if (typeof cachedHistory !== 'undefined' && cachedHistory.length > 0) {
-        cachedHistory.forEach(d => {
-            const dealType = String(d.type || '').toLowerCase();
-            if (dealType !== 'buy' && dealType !== 'sell') return;
-            const entry = String(d.entry || '').toLowerCase();
-            if (entry === 'in' || entry === '0') return;
-            const pnl = (d.totalPnl !== undefined && d.totalPnl !== null)
-                ? parseFloat(d.totalPnl)
-                : (parseFloat(d.profit || 0) + parseFloat(d.swap || 0) + parseFloat(d.commission || 0));
-            total += pnl;
-            count++;
-        });
+    if (typeof cachedAccounts === 'undefined' || !cachedAccounts.length) {
+        valEl.textContent = "$0.00";
+        if (pctEl) pctEl.textContent = "0.00%";
+        return;
     }
 
-    if (count === 0 && typeof cachedAccounts !== 'undefined' && cachedAccounts.length > 0) {
-        total = cachedAccounts.reduce((s, a) => s + parseFloat(a.plAllTime || 0), 0);
-        count = cachedAccounts.length;
-    }
+    // Sum plAllTime across all connected accounts for accurate All-Time P/L
+    const totalAllTime = cachedAccounts.reduce((sum, a) => sum + parseFloat(a.plAllTime || 0), 0);
+    const totalBalance = cachedAccounts.reduce((sum, a) => sum + parseFloat(a.balance || 0), 0);
 
-    const sign = total >= 0 ? '+' : '-';
-    valEl.textContent = sign + '$' + Math.abs(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    valEl.className = 'stat-value ' + (total >= 0 ? 'positive' : 'negative');
+    const sign = totalAllTime >= 0 ? '+' : '-';
+    valEl.textContent = sign + '$' + Math.abs(totalAllTime).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    valEl.className = 'stat-value ' + (totalAllTime >= 0 ? 'positive' : 'negative');
 
-    if (typeof cachedAccounts !== 'undefined' && cachedAccounts.length > 0) {
-        const tBal = cachedAccounts.reduce((s, a) => s + parseFloat(a.balance || 0), 0);
-        if (tBal > 0) {
-            const pct = (total / tBal) * 100;
-            pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
-            pctEl.className = total >= 0 ? 'positive' : 'negative';
-        }
+    if (pctEl) {
+        const startBal = totalBalance - totalAllTime;
+        const pct = startBal > 0 ? (totalAllTime / startBal) * 100 : (totalBalance > 0 ? (totalAllTime / totalBalance) * 100 : 0);
+        pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+        pctEl.className = totalAllTime >= 0 ? 'positive' : 'negative';
     }
 }
 
