@@ -8,6 +8,7 @@ let refreshInterval = null;
 const pageTitles = {
     dashboard:    ["Welcome Mr Farhan", "Overview of all trading accounts"],
     accounts:     ["Accounts", "Detailed view of all connected accounts"],
+    groups:       ["Client Groups", "Group accounts by client to monitor specific portfolios"],
     sharing:      ["Profit Sharing", "Weekly 70/30 profit split breakdown per account"],
     positions:    ["Positions", "All open positions across accounts"],
     orders:       ["Orders", "Pending orders across all accounts"],
@@ -80,6 +81,7 @@ function refreshCurrentPage(pageId) {
     switch(pageId) {
         case 'dashboard': renderDashboard(); break;
         case 'accounts': renderAccounts(); break;
+        case 'groups': if (typeof renderGroupsPage === 'function') renderGroupsPage(); break;
         case 'sharing': renderProfitSharing(); break;
         case 'positions': renderPositions(); break;
         case 'orders': renderOrders(); break;
