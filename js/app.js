@@ -67,6 +67,13 @@ async function refreshAll() {
     if (activePage) {
         refreshCurrentPage(activePage.id.replace('page-',''));
     }
+
+    // Update P/L cards from real history data after every refresh
+    if (typeof updateAllTimePLFromHistory === 'function') updateAllTimePLFromHistory();
+    if (typeof updateDashboardPeriodCard === 'function') {
+        const headerLabel = document.getElementById('header-date')?.textContent || 'Today';
+        updateDashboardPeriodCard(headerLabel, periodFromTs, periodToTs);
+    }
 }
 
 function refreshCurrentPage(pageId) {
