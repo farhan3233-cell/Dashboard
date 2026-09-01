@@ -148,6 +148,42 @@ def update_account():
         if 'history' in data and isinstance(data['history'], list):
             history_db[account_id] = data['history']
 
+        # ── Recalculate real plToday + plAllTime from closed deals server-side ──
+        # This ensures accuracy even for older EA versions
+        import datetime as _dt
+        try:
+            all_deals = history_db.get(account_id, [])
+            today_utc = _dt.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_ts = int(today_utc.timestamp())
+
+            pl_today_calc = 0.0
+            pl_alltime_calc = 0.0
+            for deal in all_deals:
+                entry = str(deal.get('entry', 'out')).lower()
+                # Only count closing legs
+                if entry not in ('out', 'out_by', 'inout'):
+                    continue
+                deal_pnl = float(deal.get('totalPnl', 0) or 0)
+                if deal_pnl == 0.0:
+                    # Fallback: profit + swap + commission
+                    deal_pnl = (float(deal.get('profit', 0) or 0) +
+                                float(deal.get('swap', 0) or 0) +
+                                float(deal.get('commission', 0) or 0))
+                pl_alltime_calc += deal_pnl
+                deal_time = int(deal.get('time', 0))
+                if deal_time >= today_ts:
+                    pl_today_calc += deal_pnl
+
+            # Override with server-calculated values if history was sent
+            if all_deals:
+                balance_val = float(accounts_db[account_id].get('balance', 1) or 1)
+                accounts_db[account_id]['plToday']      = round(pl_today_calc, 2)
+                accounts_db[account_id]['plTodayPct']   = round((pl_today_calc / balance_val) * 100, 4)
+                accounts_db[account_id]['plAllTime']     = round(pl_alltime_calc, 2)
+                accounts_db[account_id]['plAllTimePct']  = round((pl_alltime_calc / balance_val) * 100, 4)
+        except Exception as calc_err:
+            print(f"[WARNING] P&L recalc failed: {calc_err}")
+
         save_db()
 
         print(f"[OK] Synced account {account_id} | Broker: '{data.get('broker')}' | Positions: {len(data.get('positions',[]))} | Orders: {len(data.get('orders',[]))}")

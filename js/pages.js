@@ -141,31 +141,66 @@ function renderTransactions() {
     const search = (document.getElementById("tx-search")||{}).value||"";
     const filterTy = (document.getElementById("tx-filter-type")||{}).value||"";
 
+    // Build today's midnight UTC timestamp for highlighting
+    const todayMidnight = new Date();
+    todayMidnight.setUTCHours(0, 0, 0, 0);
+    const todayTs = Math.floor(todayMidnight.getTime() / 1000);
+
+    // Only show CLOSING deals (entry=out, out_by, inout) — these represent realized P&L
     let list = cachedHistory.filter(d => {
+        const entry = (d.entry || 'out').toLowerCase();
+        if (!['out', 'out_by', 'inout'].includes(entry)) return false;
         if(search && !(d.symbol||"").toLowerCase().includes(search.toLowerCase())) return false;
-        if(filterTy && d.type!==filterTy) return false;
+        if(filterTy && d.type !== filterTy) return false;
         return true;
     });
 
+    // Sort newest first
+    list = list.sort((a, b) => parseInt(b.time||0) - parseInt(a.time||0));
+
     if(!list.length) {
-        tbody.innerHTML = emptyRow(9,"No transaction history","Recent deals will appear once the EA sends history data");
+        tbody.innerHTML = emptyRow(10, "No closed trade history", "Closed deals appear once the EA sends history data. Make sure trades were closed and history was synced.");
         document.getElementById("transactions-showing").textContent = "No transaction history";
         return;
     }
 
+    // Compute totals
+    let totalPnl = 0;
+    let todayPnl = 0;
+    let todayCount = 0;
+
     tbody.innerHTML = list.map(d => {
         const pr = parseFloat(d.profit||0);
-        return `<tr>
+        const sw = parseFloat(d.swap||0);
+        const cm = parseFloat(d.commission||0);
+        // Use pre-computed totalPnl if available, else compute it
+        const total = d.totalPnl !== undefined ? parseFloat(d.totalPnl) : (pr + sw + cm);
+        totalPnl += total;
+
+        const dTime = parseInt(d.time||0);
+        const isToday = dTime >= todayTs;
+        if (isToday) { todayPnl += total; todayCount++; }
+
+        const rowStyle = isToday ? 'background:var(--green-light);' : '';
+        const todayBadge = isToday ? `<span style="font-size:0.65rem;background:var(--green);color:#fff;padding:1px 5px;border-radius:6px;margin-left:4px;">TODAY</span>` : '';
+
+        return `<tr style="${rowStyle}">
             <td>${d.ticket||"—"}</td>
             <td><div class="account-cell"><span class="account-name">${d._account||"—"}</span></div></td>
             <td><b>${d.symbol||"—"}</b></td>
             <td><span class="${d.type==='Buy'?'positive':'negative'}">${d.type||"—"}</span></td>
             <td>${parseFloat(d.lots||0).toFixed(2)}</td>
             <td>${parseFloat(d.price||0).toFixed(5)}</td>
-            <td class="${pr>=0?'positive':'negative'}"><b>${fmt$(pr)}</b></td>
-            <td>${parseFloat(d.swap||0).toFixed(2)}</td>
-            <td>${tsToDate(d.time)}</td>
+            <td class="${pr>=0?'positive':'negative'}">${fmt$(pr)}</td>
+            <td>${sw.toFixed(2)}</td>
+            <td class="${cm!==0?'negative':''}">${cm.toFixed(2)}</td>
+            <td class="${total>=0?'positive':'negative'}"><b>${fmt$(total)}</b>${todayBadge}</td>
         </tr>`;
     }).join('');
-    document.getElementById("transactions-showing").textContent = list.length+" transaction"+(list.length!==1?"s":"");
+
+    // Footer summary
+    const showing = document.getElementById("transactions-showing");
+    showing.innerHTML = `${list.length} deal${list.length!==1?'s':''} | Total: <b class="${totalPnl>=0?'positive':'negative'}">${fmt$(totalPnl)}</b>`
+        + (todayCount > 0 ? ` | Today (${todayCount}): <b class="${todayPnl>=0?'positive':'negative'}">${fmt$(todayPnl)}</b>` : '');
 }
+
