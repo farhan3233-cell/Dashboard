@@ -45,7 +45,7 @@ function renderGroupsPage() {
 function renderGroupsList(container) {
     const accounts = cachedAccounts || [];
 
-    if (!clientGroups.length) {
+    if (!clientGroups || !clientGroups.length) {
         container.innerHTML = `
             <div class="card" style="padding:40px; text-align:center; max-width:600px; margin:40px auto; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px;">
                 <div style="width:64px; height:64px; border-radius:50%; background:var(--blue-light); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
@@ -403,3 +403,8 @@ function deleteGroup(groupId) {
         renderGroupsPage();
     }
 }
+
+// Auto render on load
+document.addEventListener("DOMContentLoaded", () => {
+    renderGroupsPage();
+});

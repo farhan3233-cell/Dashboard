@@ -279,7 +279,18 @@
 
         <!-- ─── PAGE: CLIENT GROUPS ─────────────────────────────── -->
         <div id="page-groups" class="page">
-            <div id="groups-page-container"></div>
+            <div id="groups-page-container">
+                <div class="card" style="padding:40px; text-align:center; max-width:600px; margin:40px auto; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px;">
+                    <div style="width:64px; height:64px; border-radius:50%; background:var(--blue-light); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                        <i class="ph ph-folder-user" style="font-size:32px; color:var(--blue);"></i>
+                    </div>
+                    <h2 style="margin:0 0 8px 0; font-size:20px; color:var(--text-primary);">No Client Groups Created</h2>
+                    <p style="color:var(--text-secondary); font-size:14px; margin-bottom:24px;">Create a client group to separate and monitor portfolio performance for specific clients.</p>
+                    <button class="btn btn-primary" onclick="showGroupCreateForm()" style="padding:12px 24px; font-size:15px;">
+                        <i class="ph ph-plus-circle"></i> Create Client Group
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- ─── PAGE: POSITIONS ─────────────────────────────────── -->
@@ -640,12 +651,12 @@
 
     </main>
 </div>
-<script src="js/utils.js"></script>
-<script src="js/datepicker.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/pages.js"></script>
-<script src="js/pages2.js"></script>
-<script src="js/groups.js"></script>
-<script src="js/app.js"></script>
+<script src="js/utils.js?v=3.0"></script>
+<script src="js/datepicker.js?v=3.0"></script>
+<script src="js/dashboard.js?v=3.0"></script>
+<script src="js/pages.js?v=3.0"></script>
+<script src="js/pages2.js?v=3.0"></script>
+<script src="js/groups.js?v=3.0"></script>
+<script src="js/app.js?v=3.0"></script>
 </body>
 </html>
