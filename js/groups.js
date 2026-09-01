@@ -277,8 +277,8 @@ function renderGroupDetailView(container) {
             </div>
         </div>
 
-        <!-- Dashboard Stat Cards (4 Cards) -->
-        <section class="stats-grid" style="margin-bottom:24px;">
+        <!-- Dashboard Stat Cards (4 Cards Grid) -->
+        <section class="stat-cards" style="grid-template-columns:repeat(4, 1fr); margin-bottom:24px;">
             <div class="card stat-card">
                 <div class="stat-card-header">
                     <span class="stat-title">Client Total Balance</span>
