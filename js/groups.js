@@ -47,13 +47,13 @@ function renderGroupsList(container) {
 
     if (!clientGroups.length) {
         container.innerHTML = `
-            <div class="card" style="padding:40px; text-align:center; max-width:600px; margin:40px auto;">
-                <div style="width:64px; height:64px; border-radius:50%; background:var(--bg-card-secondary); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
-                    <i class="ph ph-folder-user" style="font-size:32px; color:var(--primary);"></i>
+            <div class="card" style="padding:40px; text-align:center; max-width:600px; margin:40px auto; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px;">
+                <div style="width:64px; height:64px; border-radius:50%; background:var(--blue-light); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                    <i class="ph ph-folder-user" style="font-size:32px; color:var(--blue);"></i>
                 </div>
-                <h2 style="margin:0 0 8px 0; font-size:20px; color:var(--text-main);">No Client Groups Created</h2>
-                <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px;">Create a client group to separate and monitor portfolio performance for specific clients.</p>
-                <button class="btn btn-primary btn-lg" onclick="showGroupCreateForm()" style="padding:12px 24px; font-size:15px;">
+                <h2 style="margin:0 0 8px 0; font-size:20px; color:var(--text-primary);">No Client Groups Created</h2>
+                <p style="color:var(--text-secondary); font-size:14px; margin-bottom:24px;">Create a client group to separate and monitor portfolio performance for specific clients.</p>
+                <button class="btn btn-primary" onclick="showGroupCreateForm()" style="padding:12px 24px; font-size:15px;">
                     <i class="ph ph-plus-circle"></i> Create Client Group
                 </button>
             </div>
@@ -76,11 +76,11 @@ function renderGroupsList(container) {
         const pltSign = tPlT >= 0 ? '+' : '';
 
         return `
-            <div class="card" style="padding:20px; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; border:1px solid var(--border-color);" onclick="openGroupDetail('${grp.id}')">
+            <div class="card" style="padding:20px; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px;" onclick="openGroupDetail('${grp.id}')">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
                     <div>
-                        <h3 style="margin:0; font-size:18px; color:var(--text-main); font-weight:700;">${grp.name}</h3>
-                        <span class="badge" style="background:var(--bg-card-secondary); color:var(--text-muted); font-size:12px; margin-top:4px; display:inline-block;">
+                        <h3 style="margin:0; font-size:18px; color:var(--text-primary); font-weight:700;">${grp.name}</h3>
+                        <span class="badge" style="background:var(--main-bg); color:var(--text-secondary); font-size:12px; margin-top:4px; display:inline-block; padding:4px 8px; border-radius:6px;">
                             <i class="ph ph-users"></i> ${grpAccounts.length} Account${grpAccounts.length !== 1 ? 's' : ''}
                         </span>
                     </div>
@@ -90,13 +90,13 @@ function renderGroupsList(container) {
                     </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px; background:var(--bg-card-secondary); border-radius:8px; margin-bottom:16px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px; background:var(--main-bg); border-radius:8px; margin-bottom:16px;">
                     <div>
-                        <span style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Total Capital</span>
-                        <div style="font-size:16px; font-weight:700; color:var(--text-main);">$${tBal.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                        <span style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Total Capital</span>
+                        <div style="font-size:16px; font-weight:700; color:var(--text-primary);">$${tBal.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
                     </div>
                     <div>
-                        <span style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Today P/L</span>
+                        <span style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Today P/L</span>
                         <div style="font-size:16px; font-weight:700;" class="${tPlT>=0?'positive':'negative'}">${pltSign}$${Math.abs(tPlT).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
                     </div>
                 </div>
@@ -111,8 +111,8 @@ function renderGroupsList(container) {
     container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
             <div>
-                <h2 style="margin:0; font-size:22px; font-weight:700; color:var(--text-main);">Client Groups (${clientGroups.length})</h2>
-                <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-muted);">Select a client group to view its dedicated dashboard and accounts</p>
+                <h2 style="margin:0; font-size:22px; font-weight:700; color:var(--text-primary);">Client Groups (${clientGroups.length})</h2>
+                <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-secondary);">Select a client group to view its dedicated dashboard and accounts</p>
             </div>
             <button class="btn btn-primary" onclick="showGroupCreateForm()">
                 <i class="ph ph-plus-circle"></i> Create New Group
@@ -123,8 +123,8 @@ function renderGroupsList(container) {
             ${cardsHtml}
         </div>
 
-        <div style="text-align:center; padding:20px; background:var(--card-bg); border:1px dashed var(--border-color); border-radius:12px;">
-            <button class="btn btn-primary" onclick="showGroupCreateForm()" style="padding:10px 20px;">
+        <div style="text-align:center; padding:24px; background:var(--card-bg); border:1px dashed var(--border-color); border-radius:12px;">
+            <button class="btn btn-primary" onclick="showGroupCreateForm()" style="padding:10px 24px;">
                 <i class="ph ph-plus-circle"></i> Create New Client Group
             </button>
         </div>
@@ -142,7 +142,7 @@ function renderGroupCreateForm(container) {
 
     let checkboxesHtml = '';
     if (!allAccounts.length) {
-        checkboxesHtml = `<p style="color:var(--text-muted); font-size:13px; padding:12px;">No connected accounts available. Please attach DashboardSync EA to MT5 charts first.</p>`;
+        checkboxesHtml = `<p style="color:var(--text-secondary); font-size:13px; padding:12px;">No connected accounts available. Please attach DashboardSync EA to MT5 charts first.</p>`;
     } else {
         checkboxesHtml = allAccounts.map(a => {
             const accId = String(a.account);
@@ -150,11 +150,11 @@ function renderGroupCreateForm(container) {
             const name = a.holderName || a.name || `Account #${accId}`;
             const bal = parseFloat(a.balance || 0);
             return `
-                <label style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--bg-card-secondary); border:1px solid var(--border-color); border-radius:8px; cursor:pointer; transition:border-color 0.2s;">
-                    <input type="checkbox" class="form-group-acc-cb" value="${accId}" ${isChecked ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--primary);">
+                <label style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--main-bg); border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
+                    <input type="checkbox" class="form-group-acc-cb" value="${accId}" ${isChecked ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--blue);">
                     <div style="flex:1;">
-                        <strong style="color:var(--text-main); font-size:14px; display:block;">${name}</strong>
-                        <span style="font-size:12px; color:var(--text-muted);">Account ID: ${accId} | Broker: ${a.broker || 'MT5'} | Balance: $${bal.toLocaleString('en-US',{minimumFractionDigits:2})}</span>
+                        <strong style="color:var(--text-primary); font-size:14px; display:block;">${name}</strong>
+                        <span style="font-size:12px; color:var(--text-secondary);">Account ID: ${accId} | Broker: ${a.broker || 'MT5'} | Balance: $${bal.toLocaleString('en-US',{minimumFractionDigits:2})}</span>
                     </div>
                 </label>
             `;
@@ -166,22 +166,22 @@ function renderGroupCreateForm(container) {
             <button class="btn btn-outline" onclick="cancelGroupForm()"><i class="ph ph-arrow-left"></i> Back to Client Groups</button>
         </div>
 
-        <div class="card" style="max-width:700px; margin:0 auto; padding:28px;">
-            <h2 style="margin:0 0 6px 0; font-size:20px; font-weight:700; color:var(--text-main);">
-                <i class="ph ${isEdit ? 'ph-pencil' : 'ph-folder-user'}" style="margin-right:8px; color:var(--primary);"></i>
+        <div class="card" style="max-width:700px; margin:0 auto; padding:28px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px;">
+            <h2 style="margin:0 0 6px 0; font-size:20px; font-weight:700; color:var(--text-primary);">
+                <i class="ph ${isEdit ? 'ph-pencil' : 'ph-folder-user'}" style="margin-right:8px; color:var(--blue);"></i>
                 ${isEdit ? 'Edit Client Group' : 'Create New Client Group'}
             </h2>
-            <p style="margin:0 0 24px 0; font-size:13px; color:var(--text-muted);">
+            <p style="margin:0 0 24px 0; font-size:13px; color:var(--text-secondary);">
                 Enter group name and select accounts to monitor in this client group.
             </p>
 
             <div style="margin-bottom:20px;">
-                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-main);">Client / Group Name *</label>
-                <input type="text" id="form-group-name" value="${groupName}" placeholder="e.g. Farhan Sayyed" style="width:100%; padding:12px 16px; background:var(--bg-card-secondary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-main); font-size:14px; box-sizing:border-box;">
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Client / Group Name *</label>
+                <input type="text" id="form-group-name" value="${groupName}" placeholder="e.g. Farhan Sayyed" style="width:100%; padding:12px 16px; background:var(--main-bg); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:14px; box-sizing:border-box;">
             </div>
 
             <div style="margin-bottom:24px;">
-                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-main);">Select Available Accounts for this Group</label>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Select Available Accounts for this Group</label>
                 <div style="display:flex; flex-direction:column; gap:10px; max-height:320px; overflow-y:auto; padding:4px 0;">
                     ${checkboxesHtml}
                 </div>
@@ -238,14 +238,14 @@ function renderGroupDetailView(container) {
             return `<tr>
                 <td>
                     <div style="display:flex;align-items:center;gap:6px">
-                        <span class="account-name font-weight-bold" style="font-weight:600;color:var(--text-main);">${holderName}</span>
+                        <span class="account-name font-weight-bold" style="font-weight:600;color:var(--text-primary);">${holderName}</span>
                     </div>
                 </td>
                 <td><div class="account-cell"><span class="account-name">${d.account}</span><span class="account-type">${d.type||"Real"}</span></div></td>
                 <td><div class="broker-cell"><div class="broker-logo" style="color:${bs.color}"><i class="ph-fill ${bs.icon}"></i></div><span>${d.broker||"—"}</span></div></td>
                 <td>${fmtPlain$(bal)}</td>
-                <td><div class="pl-cell"><span class="pl-val ${plt>=0?'positive':'negative'}">${plt>=0?'+':'-'}$${Math.abs(plt).toLocaleString('en-US',{minimumFractionDigits:2})}</span><span class="pl-pct ${pltPct>=0?'positive':'negative'}">${pltPct.toFixed(2)}%</span></div></td>
-                <td><div class="pl-cell"><span class="pl-val ${pla>=0?'positive':'negative'}">${pla>=0?'+':'-'}$${Math.abs(pla).toLocaleString('en-US',{minimumFractionDigits:2})}</span><span class="pl-pct ${plaPct>=0?'positive':'negative'}">${plaPct.toFixed(2)}%</span></div></td>
+                <td><div class="pl-cell"><span class="pl-val ${plt>=0?'positive':'negative'}">${fmt$(plt)}</span><span class="pl-pct ${pltPct>=0?'positive':'negative'}">${fmtPct(pltPct)}</span></div></td>
+                <td><div class="pl-cell"><span class="pl-val ${pla>=0?'positive':'negative'}">${fmt$(pla)}</span><span class="pl-pct ${plaPct>=0?'positive':'negative'}">${fmtPct(plaPct)}</span></div></td>
                 <td><span class="status-pill ${st.toLowerCase()}">${st}</span></td>
                 <td>
                     <button class="actions-btn" onclick="navigateTo('accounts')" title="View Account Details"><i class="ph ph-eye"></i></button>
@@ -258,7 +258,7 @@ function renderGroupDetailView(container) {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
             <div style="display:flex; align-items:center; gap:12px;">
                 <button class="btn btn-outline" onclick="backToGroupsList()"><i class="ph ph-arrow-left"></i> All Client Groups</button>
-                <h2 style="margin:0; font-size:22px; font-weight:700; color:var(--text-main);">${grp.name}</h2>
+                <h2 style="margin:0; font-size:22px; font-weight:700; color:var(--text-primary);">${grp.name}</h2>
             </div>
             <div style="display:flex; gap:10px;">
                 <button class="btn btn-outline btn-sm" onclick="showGroupEditForm('${grp.id}')"><i class="ph ph-pencil"></i> Edit Group</button>
