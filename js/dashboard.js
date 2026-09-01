@@ -47,7 +47,7 @@ function renderDashboard() {
     }
 
     let tBal=0, tEq=0, tPlT=0, tPlA=0, actv=0, inactv=0, tPos=0;
-    let bestProfit=null, bestGainer=null, attCount=0;
+    let bestProfit=null, bestGainer=null, bestMargin=null, attCount=0;
 
     accounts.forEach(d => {
         const holderName = d.holderName || d.name || ("Account #" + d.account);
@@ -67,6 +67,7 @@ function renderDashboard() {
 
         if(!bestProfit || plt > parseFloat(bestProfit.plToday||0)) bestProfit = d;
         if(!bestGainer || plaPct > parseFloat(bestGainer.plAllTimePct||0)) bestGainer = d;
+        if(!bestMargin || parseFloat(d.marginLevel||0) > parseFloat(bestMargin.marginLevel||0)) bestMargin = d;
 
         const bs = getBrokerStyle(d.broker);
         const tr = document.createElement("tr");

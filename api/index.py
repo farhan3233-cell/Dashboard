@@ -96,10 +96,49 @@ try:
 except Exception as _err:
     pass
 
+def recalc_account_pnl(account_id):
+    """Calculate real plToday and plAllTime from history deals for an account"""
+    import datetime as _dt
+    try:
+        all_deals = history_db.get(account_id, [])
+        today_date_str = _dt.datetime.utcnow().strftime('%Y-%m-%d')
+
+        pl_today_calc = 0.0
+        pl_alltime_calc = 0.0
+        for deal in all_deals:
+            entry = str(deal.get('entry', '')).lower()
+            # Count closing deals (out, out_by, inout, 1, 2, 3, or empty/default)
+            if entry not in ('out', 'out_by', 'inout', '1', '2', '3', ''):
+                continue
+            
+            deal_pnl = float(deal.get('totalPnl', 0) or 0)
+            if deal_pnl == 0.0:
+                deal_pnl = (float(deal.get('profit', 0) or 0) +
+                            float(deal.get('swap', 0) or 0) +
+                            float(deal.get('commission', 0) or 0))
+            
+            pl_alltime_calc += deal_pnl
+            
+            deal_time = int(deal.get('time', 0))
+            if deal_time > 0:
+                deal_date_str = _dt.datetime.utcfromtimestamp(deal_time).strftime('%Y-%m-%d')
+                if deal_date_str == today_date_str:
+                    pl_today_calc += deal_pnl
+
+        if account_id in accounts_db:
+            balance_val = float(accounts_db[account_id].get('balance', 1) or 1)
+            accounts_db[account_id]['plToday']      = round(pl_today_calc, 2)
+            accounts_db[account_id]['plTodayPct']   = round((pl_today_calc / balance_val) * 100, 4) if balance_val > 0 else 0.0
+            accounts_db[account_id]['plAllTime']     = round(pl_alltime_calc, 2)
+            accounts_db[account_id]['plAllTimePct']  = round((pl_alltime_calc / balance_val) * 100, 4) if balance_val > 0 else 0.0
+    except Exception as calc_err:
+        print(f"[WARNING] P&L recalc failed for {account_id}: {calc_err}")
+
 @app.route('/api/update_account', methods=['POST', 'OPTIONS'])
 @app.route('/update_account', methods=['POST', 'OPTIONS'])
 def update_account():
     try:
+        load_db()
         data = request.get_json(force=True, silent=True)
         if data is None:
             raw_bytes = request.get_data()
@@ -135,6 +174,7 @@ def update_account():
         if 'history' in data and isinstance(data['history'], list):
             history_db[account_id] = data['history']
 
+        recalc_account_pnl(account_id)
         save_db()
         return jsonify({"status": "success", "message": f"Account {account_id} updated."}), 200
 
@@ -144,6 +184,7 @@ def update_account():
 @app.route('/api/accounts', methods=['GET'])
 @app.route('/accounts', methods=['GET'])
 def get_accounts():
+    load_db()
     now = int(time.time())
     filtered_accounts = []
     for k, a in accounts_db.items():
@@ -166,6 +207,7 @@ def get_accounts():
 @app.route('/api/positions', methods=['GET'])
 @app.route('/positions', methods=['GET'])
 def get_positions():
+    load_db()
     all_positions = []
     for acc_id, positions in positions_db.items():
         for p in positions:
@@ -177,6 +219,7 @@ def get_positions():
 @app.route('/api/orders', methods=['GET'])
 @app.route('/orders', methods=['GET'])
 def get_orders():
+    load_db()
     all_orders = []
     for acc_id, orders in orders_db.items():
         for o in orders:
@@ -188,6 +231,7 @@ def get_orders():
 @app.route('/api/history', methods=['GET'])
 @app.route('/history', methods=['GET'])
 def get_history():
+    load_db()
     all_history = []
     for acc_id, deals in history_db.items():
         for d in deals:
@@ -199,11 +243,13 @@ def get_history():
 @app.route('/api/alerts', methods=['GET'])
 @app.route('/alerts', methods=['GET'])
 def get_alerts():
+    load_db()
     return jsonify({"status": "success", "data": alerts_db}), 200
 
 @app.route('/api/summary', methods=['GET'])
 @app.route('/summary', methods=['GET'])
 def get_summary():
+    load_db()
     accounts = list(accounts_db.values())
     total_balance    = sum(float(a.get('balance', 0)) for a in accounts)
     total_equity     = sum(float(a.get('equity', 0)) for a in accounts)
@@ -228,6 +274,7 @@ def get_summary():
 @app.route('/api/delete_account/<account_id>', methods=['DELETE', 'POST', 'GET'])
 @app.route('/delete_account/<account_id>', methods=['DELETE', 'POST', 'GET'])
 def delete_account(account_id):
+    load_db()
     acc_str = str(account_id)
     accounts_db.pop(acc_str, None)
     positions_db.pop(acc_str, None)
@@ -239,6 +286,7 @@ def delete_account(account_id):
 @app.route('/api/set_nickname', methods=['POST', 'OPTIONS'])
 @app.route('/set_nickname', methods=['POST', 'OPTIONS'])
 def set_nickname():
+    load_db()
     data = request.get_json(force=True, silent=True) or {}
     acc_id = str(data.get('account', ''))
     nickname = str(data.get('holderName', '')).strip()

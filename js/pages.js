@@ -148,8 +148,8 @@ function renderTransactions() {
 
     // Only show CLOSING deals (entry=out, out_by, inout) — these represent realized P&L
     let list = cachedHistory.filter(d => {
-        const entry = (d.entry || 'out').toLowerCase();
-        if (!['out', 'out_by', 'inout'].includes(entry)) return false;
+        const entry = String(d.entry || '').toLowerCase();
+        if (entry === 'in' || entry === '0') return false;
         if(search && !(d.symbol||"").toLowerCase().includes(search.toLowerCase())) return false;
         if(filterTy && d.type !== filterTy) return false;
         return true;

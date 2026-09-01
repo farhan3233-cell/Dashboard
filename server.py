@@ -6,7 +6,9 @@ import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
 CORS(app)
 
 @app.errorhandler(Exception)
@@ -29,7 +31,6 @@ DB_FILE = '/tmp/db.json' if (os.environ.get('VERCEL') or os.environ.get('AWS_LAM
 UPSTASH_URL = os.environ.get('UPSTASH_REDIS_REST_URL')
 UPSTASH_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN')
 
-# ── Data Persistence Functions ────────────────────────────────────────────────
 def load_db():
     global accounts_db, positions_db, orders_db, history_db, alerts_db
     if UPSTASH_URL and UPSTASH_TOKEN:
@@ -49,7 +50,6 @@ def load_db():
                     orders_db = data.get('orders', {})
                     history_db = data.get('history', {})
                     alerts_db = data.get('alerts', [])
-                    print(f"[INIT] Loaded {len(accounts_db)} account(s) from Upstash Redis Cloud")
         except Exception as e:
             print(f"[WARNING] Failed to load from Upstash: {e}")
     elif os.path.exists(DB_FILE):
@@ -61,7 +61,6 @@ def load_db():
                 orders_db = data.get('orders', {})
                 history_db = data.get('history', {})
                 alerts_db = data.get('alerts', [])
-                print(f"[INIT] Loaded {len(accounts_db)} persisted account(s) from {DB_FILE}")
         except Exception as e:
             print(f"[WARNING] Failed to load {DB_FILE}: {e}")
 
@@ -90,39 +89,68 @@ def save_db():
         except Exception as e:
             print(f"[ERROR] Failed to save {DB_FILE}: {e}")
 
-# Load existing state on server launch
 try:
     load_db()
 except Exception as _err:
-    print(f"[WARNING] Safe load_db fallback: {_err}")
+    pass
 
-# ── EA → Server: Master update endpoint ───────────────────────────────────────
+def recalc_account_pnl(account_id):
+    """Calculate real plToday and plAllTime from history deals for an account"""
+    import datetime as _dt
+    try:
+        all_deals = history_db.get(account_id, [])
+        today_date_str = _dt.datetime.utcnow().strftime('%Y-%m-%d')
+
+        pl_today_calc = 0.0
+        pl_alltime_calc = 0.0
+        for deal in all_deals:
+            entry = str(deal.get('entry', '')).lower()
+            if entry not in ('out', 'out_by', 'inout', '1', '2', '3', ''):
+                continue
+            
+            deal_pnl = float(deal.get('totalPnl', 0) or 0)
+            if deal_pnl == 0.0:
+                deal_pnl = (float(deal.get('profit', 0) or 0) +
+                            float(deal.get('swap', 0) or 0) +
+                            float(deal.get('commission', 0) or 0))
+            
+            pl_alltime_calc += deal_pnl
+            
+            deal_time = int(deal.get('time', 0))
+            if deal_time > 0:
+                deal_date_str = _dt.datetime.utcfromtimestamp(deal_time).strftime('%Y-%m-%d')
+                if deal_date_str == today_date_str:
+                    pl_today_calc += deal_pnl
+
+        if account_id in accounts_db:
+            balance_val = float(accounts_db[account_id].get('balance', 1) or 1)
+            accounts_db[account_id]['plToday']      = round(pl_today_calc, 2)
+            accounts_db[account_id]['plTodayPct']   = round((pl_today_calc / balance_val) * 100, 4) if balance_val > 0 else 0.0
+            accounts_db[account_id]['plAllTime']     = round(pl_alltime_calc, 2)
+            accounts_db[account_id]['plAllTimePct']  = round((pl_alltime_calc / balance_val) * 100, 4) if balance_val > 0 else 0.0
+    except Exception as calc_err:
+        print(f"[WARNING] P&L recalc failed for {account_id}: {calc_err}")
+
 @app.route('/api/update_account', methods=['POST', 'OPTIONS'])
 @app.route('/update_account', methods=['POST', 'OPTIONS'])
-@app.route('/api/index.py/api/update_account', methods=['POST', 'OPTIONS'])
-@app.route('/api/index.py/update_account', methods=['POST', 'OPTIONS'])
 def update_account():
     try:
+        load_db()
         data = request.get_json(force=True, silent=True)
         if data is None:
             raw_bytes = request.get_data()
             if raw_bytes:
-                # Strip trailing null bytes and whitespace from MQL5 WebRequest buffer
                 clean_str = raw_bytes.decode('utf-8', errors='ignore').rstrip('\x00\r\n\t ')
                 if clean_str:
                     data = json.loads(clean_str)
 
         if not data or 'account' not in data:
-            print("Invalid data received:", request.get_data(as_text=True))
             return jsonify({"status": "error", "message": "'account' field is required."}), 400
 
         account_id = str(data['account'])
-
-        # Store account-level info (everything except sub-lists)
         account_info = {k: v for k, v in data.items() if k not in ('positions', 'orders', 'history')}
         account_info['lastSeen'] = int(time.time())
 
-        # Smart holderName preservation logic
         incoming_holder = str(account_info.get('holderName', '')).strip()
         existing_holder = str(accounts_db.get(account_id, {}).get('holderName', '')).strip()
 
@@ -136,67 +164,24 @@ def update_account():
         else:
             accounts_db[account_id] = account_info
 
-        # Store positions
         if 'positions' in data and isinstance(data['positions'], list):
             positions_db[account_id] = data['positions']
-
-        # Store orders
         if 'orders' in data and isinstance(data['orders'], list):
             orders_db[account_id] = data['orders']
-
-        # Store history / deals
         if 'history' in data and isinstance(data['history'], list):
             history_db[account_id] = data['history']
 
-        # ── Recalculate real plToday + plAllTime from closed deals server-side ──
-        # This ensures accuracy even for older EA versions
-        import datetime as _dt
-        try:
-            all_deals = history_db.get(account_id, [])
-            today_utc = _dt.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-            today_ts = int(today_utc.timestamp())
-
-            pl_today_calc = 0.0
-            pl_alltime_calc = 0.0
-            for deal in all_deals:
-                entry = str(deal.get('entry', 'out')).lower()
-                # Only count closing legs
-                if entry not in ('out', 'out_by', 'inout'):
-                    continue
-                deal_pnl = float(deal.get('totalPnl', 0) or 0)
-                if deal_pnl == 0.0:
-                    # Fallback: profit + swap + commission
-                    deal_pnl = (float(deal.get('profit', 0) or 0) +
-                                float(deal.get('swap', 0) or 0) +
-                                float(deal.get('commission', 0) or 0))
-                pl_alltime_calc += deal_pnl
-                deal_time = int(deal.get('time', 0))
-                if deal_time >= today_ts:
-                    pl_today_calc += deal_pnl
-
-            # Override with server-calculated values if history was sent
-            if all_deals:
-                balance_val = float(accounts_db[account_id].get('balance', 1) or 1)
-                accounts_db[account_id]['plToday']      = round(pl_today_calc, 2)
-                accounts_db[account_id]['plTodayPct']   = round((pl_today_calc / balance_val) * 100, 4)
-                accounts_db[account_id]['plAllTime']     = round(pl_alltime_calc, 2)
-                accounts_db[account_id]['plAllTimePct']  = round((pl_alltime_calc / balance_val) * 100, 4)
-        except Exception as calc_err:
-            print(f"[WARNING] P&L recalc failed: {calc_err}")
-
+        recalc_account_pnl(account_id)
         save_db()
-
-        print(f"[OK] Synced account {account_id} | Broker: '{data.get('broker')}' | Positions: {len(data.get('positions',[]))} | Orders: {len(data.get('orders',[]))}")
         return jsonify({"status": "success", "message": f"Account {account_id} updated."}), 200
 
     except Exception as e:
-        print(f"[ERROR] update_account: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# ── GET endpoints ──────────────────────────────────────────────────────────────
 @app.route('/api/accounts', methods=['GET'])
 @app.route('/accounts', methods=['GET'])
 def get_accounts():
+    load_db()
     now = int(time.time())
     filtered_accounts = []
     for k, a in accounts_db.items():
@@ -219,6 +204,7 @@ def get_accounts():
 @app.route('/api/positions', methods=['GET'])
 @app.route('/positions', methods=['GET'])
 def get_positions():
+    load_db()
     all_positions = []
     for acc_id, positions in positions_db.items():
         for p in positions:
@@ -230,6 +216,7 @@ def get_positions():
 @app.route('/api/orders', methods=['GET'])
 @app.route('/orders', methods=['GET'])
 def get_orders():
+    load_db()
     all_orders = []
     for acc_id, orders in orders_db.items():
         for o in orders:
@@ -241,6 +228,7 @@ def get_orders():
 @app.route('/api/history', methods=['GET'])
 @app.route('/history', methods=['GET'])
 def get_history():
+    load_db()
     all_history = []
     for acc_id, deals in history_db.items():
         for d in deals:
@@ -252,12 +240,13 @@ def get_history():
 @app.route('/api/alerts', methods=['GET'])
 @app.route('/alerts', methods=['GET'])
 def get_alerts():
+    load_db()
     return jsonify({"status": "success", "data": alerts_db}), 200
 
 @app.route('/api/summary', methods=['GET'])
 @app.route('/summary', methods=['GET'])
 def get_summary():
-    """Aggregated summary for dashboard cards"""
+    load_db()
     accounts = list(accounts_db.values())
     total_balance    = sum(float(a.get('balance', 0)) for a in accounts)
     total_equity     = sum(float(a.get('equity', 0)) for a in accounts)
@@ -279,10 +268,10 @@ def get_summary():
         }
     }), 200
 
-# ── Delete Account Endpoint ───────────────────────────────────────────────────
 @app.route('/api/delete_account/<account_id>', methods=['DELETE', 'POST', 'GET'])
 @app.route('/delete_account/<account_id>', methods=['DELETE', 'POST', 'GET'])
 def delete_account(account_id):
+    load_db()
     acc_str = str(account_id)
     accounts_db.pop(acc_str, None)
     positions_db.pop(acc_str, None)
@@ -291,10 +280,10 @@ def delete_account(account_id):
     save_db()
     return jsonify({"status": "success", "message": f"Account {acc_str} deleted"}), 200
 
-# ── Set Nickname Endpoint ─────────────────────────────────────────────────────
 @app.route('/api/set_nickname', methods=['POST', 'OPTIONS'])
 @app.route('/set_nickname', methods=['POST', 'OPTIONS'])
 def set_nickname():
+    load_db()
     data = request.get_json(force=True, silent=True) or {}
     acc_id = str(data.get('account', ''))
     nickname = str(data.get('holderName', '')).strip()
@@ -306,20 +295,19 @@ def set_nickname():
         return jsonify({"status": "success", "message": f"Updated nickname for {acc_id}"}), 200
     return jsonify({"status": "error", "message": "Account not found or invalid name"}), 400
 
-# ── Static file serving & fallback ───────────────────────────────────────────
 @app.route('/', methods=['GET', 'POST', 'OPTIONS'])
 def index():
     if request.method in ('POST', 'OPTIONS'):
         return update_account()
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(BASE_DIR, 'index.html')
 
 @app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
 def serve_static(path):
     if request.method in ('POST', 'OPTIONS') and 'update_account' in path:
         return update_account()
     if os.path.exists(path):
-        return send_from_directory('.', path)
-    return send_from_directory('.', 'index.html')
+        return send_from_directory(BASE_DIR, path)
+    return send_from_directory(BASE_DIR, 'index.html')
 
 if __name__ == '__main__':
     print("=" * 50)
@@ -329,4 +317,3 @@ if __name__ == '__main__':
     print(" EA Endpoint: POST /api/update_account")
     print("=" * 50)
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
-

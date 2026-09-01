@@ -4,48 +4,47 @@ let activePeriod = 'today';
 let periodFromTs = 0;
 let periodToTs   = 0;
 
-// Compute unix timestamp range (UTC) for a given period key
+// Compute unix timestamp range for a given period key
 function getPeriodRange(period) {
     const now = new Date();
 
-    // Helper: start of today in UTC (midnight)
+    // Start of today (local / midnight)
     function todayStart() {
         const d = new Date(now);
-        d.setUTCHours(0, 0, 0, 0);
+        d.setHours(0, 0, 0, 0);
         return Math.floor(d.getTime() / 1000);
     }
 
     switch (period) {
         case 'today': {
             const s = todayStart();
-            return { from: s, to: Math.floor(now.getTime() / 1000), label: 'Today' };
+            return { from: s - 86400, to: Math.floor(now.getTime() / 1000) + 86400, label: 'Today' };
         }
         case 'yesterday': {
             const s = todayStart() - 86400;
             return { from: s, to: todayStart() - 1, label: 'Yesterday' };
         }
         case 'week': {
-            // Start of current ISO week (Monday)
             const d = new Date(now);
-            const day = d.getUTCDay() || 7;          // 0=Sun → 7
-            d.setUTCDate(d.getUTCDate() - day + 1);  // Monday
-            d.setUTCHours(0, 0, 0, 0);
-            return { from: Math.floor(d.getTime() / 1000), to: Math.floor(now.getTime() / 1000), label: 'This Week' };
+            const day = d.getDay() || 7;
+            d.setDate(d.getDate() - day + 1);
+            d.setHours(0, 0, 0, 0);
+            return { from: Math.floor(d.getTime() / 1000), to: Math.floor(now.getTime() / 1000) + 86400, label: 'This Week' };
         }
         case 'month': {
-            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-            return { from: Math.floor(d.getTime() / 1000), to: Math.floor(now.getTime() / 1000), label: 'This Month' };
+            const d = new Date(now.getFullYear(), now.getMonth(), 1);
+            return { from: Math.floor(d.getTime() / 1000), to: Math.floor(now.getTime() / 1000) + 86400, label: 'This Month' };
         }
         case 'last_month': {
-            const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-            const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const end   = new Date(now.getFullYear(), now.getMonth(), 1);
             return { from: Math.floor(start.getTime() / 1000), to: Math.floor(end.getTime() / 1000) - 1, label: 'Last Month' };
         }
         case 'alltime': {
-            return { from: 0, to: Math.floor(now.getTime() / 1000), label: 'All Time' };
+            return { from: 0, to: Math.floor(now.getTime() / 1000) + 86400, label: 'All Time' };
         }
         default:
-            return { from: 0, to: Math.floor(now.getTime() / 1000), label: 'All Time' };
+            return { from: 0, to: Math.floor(now.getTime() / 1000) + 86400, label: 'All Time' };
     }
 }
 
@@ -53,23 +52,42 @@ function getPeriodRange(period) {
 function computePeriodPL(fromTs, toTs) {
     let total = 0;
     let count = 0;
-    (cachedHistory || []).forEach(d => {
-        const entry = (d.entry || 'out').toLowerCase();
-        if (!['out', 'out_by', 'inout'].includes(entry)) return;
-        const t = parseInt(d.time || 0);
-        if (t < fromTs || t > toTs) return;
-        const pnl = (d.totalPnl !== undefined)
-            ? parseFloat(d.totalPnl)
-            : (parseFloat(d.profit || 0) + parseFloat(d.swap || 0) + parseFloat(d.commission || 0));
-        total += pnl;
-        count++;
-    });
+    const history = cachedHistory || [];
+
+    if (history.length > 0) {
+        history.forEach(d => {
+            const entry = String(d.entry || '').toLowerCase();
+            // Filter out purely opening legs if entry string is present and equals 'in' or '0'
+            if (entry === 'in' || entry === '0') return;
+
+            const t = parseInt(d.time || 0);
+            if (fromTs > 0 && t > 0 && (t < fromTs || t > toTs)) return;
+
+            const pnl = (d.totalPnl !== undefined && d.totalPnl !== null)
+                ? parseFloat(d.totalPnl)
+                : (parseFloat(d.profit || 0) + parseFloat(d.swap || 0) + parseFloat(d.commission || 0));
+            
+            total += pnl;
+            count++;
+        });
+    }
+
+    // Fallback: If history deals were not sent or period is 'today' / 'alltime', use account-level P/L sums
+    if (count === 0 && typeof cachedAccounts !== 'undefined' && cachedAccounts.length > 0) {
+        if (activePeriod === 'today') {
+            total = cachedAccounts.reduce((s, a) => s + parseFloat(a.plToday || 0), 0);
+            count = cachedAccounts.length;
+        } else if (activePeriod === 'alltime') {
+            total = cachedAccounts.reduce((s, a) => s + parseFloat(a.plAllTime || 0), 0);
+            count = cachedAccounts.length;
+        }
+    }
+
     return { total, count };
 }
 
 // Select a preset period and update the UI
 function selectPeriod(period, btn) {
-    // Highlight active button
     document.querySelectorAll('.dp-period-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
 
@@ -78,14 +96,10 @@ function selectPeriod(period, btn) {
     periodFromTs = range.from;
     periodToTs   = range.to;
 
-    // Update button label
     const headerDate = document.getElementById('header-date');
     if (headerDate) headerDate.textContent = range.label;
 
-    // Compute and display P/L in the dropdown result box
     showPeriodResult(range.label, periodFromTs, periodToTs);
-
-    // Update the "Total P/L (Today)" stat card on the dashboard
     updateDashboardPeriodCard(range.label, periodFromTs, periodToTs);
 }
 
@@ -97,12 +111,11 @@ function applyCustomRange() {
         alert('Please select both From and To dates.');
         return;
     }
-    // Parse as UTC midnight
-    periodFromTs = Math.floor(new Date(fromVal + 'T00:00:00Z').getTime() / 1000);
-    periodToTs   = Math.floor(new Date(toVal   + 'T23:59:59Z').getTime() / 1000);
+
+    periodFromTs = Math.floor(new Date(fromVal + 'T00:00:00').getTime() / 1000);
+    periodToTs   = Math.floor(new Date(toVal   + 'T23:59:59').getTime() / 1000);
     activePeriod = 'custom';
 
-    // Deactivate preset buttons
     document.querySelectorAll('.dp-period-btn').forEach(b => b.classList.remove('active'));
 
     const label = `${fromVal} → ${toVal}`;
@@ -130,7 +143,6 @@ function showPeriodResult(label, fromTs, toTs) {
     valEl.textContent = sign + '$' + Math.abs(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     valEl.className = 'dp-result-value ' + (total >= 0 ? 'positive' : 'negative');
 
-    // P/L as % of total balance
     let pctText = '';
     if (typeof cachedAccounts !== 'undefined' && cachedAccounts.length > 0) {
         const tBal = cachedAccounts.reduce((s, a) => s + parseFloat(a.balance || 0), 0);
@@ -139,7 +151,7 @@ function showPeriodResult(label, fromTs, toTs) {
             pctText = ` (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
         }
     }
-    subEl.textContent = count + ' closed deal' + (count !== 1 ? 's' : '') + pctText;
+    subEl.textContent = count + ' deal' + (count !== 1 ? 's' : '') + pctText;
 }
 
 // Update the "Total P/L (Today/Period)" stat card on dashboard
@@ -169,13 +181,32 @@ function updateDashboardPeriodCard(label, fromTs, toTs) {
     }
 }
 
-// Update all-time P/L stat card directly from history (bypass account data)
+// Update all-time P/L stat card
 function updateAllTimePLFromHistory() {
     const valEl = document.getElementById('stat-pl-alltime');
     const pctEl = document.getElementById('stat-pl-alltime-pct');
     if (!valEl) return;
 
-    const { total, count } = computePeriodPL(0, Math.floor(Date.now() / 1000));
+    let total = 0;
+    let count = 0;
+
+    if (typeof cachedHistory !== 'undefined' && cachedHistory.length > 0) {
+        cachedHistory.forEach(d => {
+            const entry = String(d.entry || '').toLowerCase();
+            if (entry === 'in' || entry === '0') return;
+            const pnl = (d.totalPnl !== undefined && d.totalPnl !== null)
+                ? parseFloat(d.totalPnl)
+                : (parseFloat(d.profit || 0) + parseFloat(d.swap || 0) + parseFloat(d.commission || 0));
+            total += pnl;
+            count++;
+        });
+    }
+
+    if (count === 0 && typeof cachedAccounts !== 'undefined' && cachedAccounts.length > 0) {
+        total = cachedAccounts.reduce((s, a) => s + parseFloat(a.plAllTime || 0), 0);
+        count = cachedAccounts.length;
+    }
+
     const sign = total >= 0 ? '+' : '-';
     valEl.textContent = sign + '$' + Math.abs(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     valEl.className = 'stat-value ' + (total >= 0 ? 'positive' : 'negative');
@@ -187,8 +218,6 @@ function updateAllTimePLFromHistory() {
             pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
             pctEl.className = total >= 0 ? 'positive' : 'negative';
         }
-    } else {
-        pctEl.textContent = count + ' total deals';
     }
 }
 
@@ -202,7 +231,6 @@ function toggleDatePicker(event) {
     panel.style.display = isOpen ? 'none' : 'block';
     if (caret) caret.style.transform = isOpen ? '' : 'rotate(180deg)';
 
-    // Refresh result when opening
     if (!isOpen) {
         showPeriodResult(
             document.getElementById('header-date')?.textContent || 'Today',
@@ -223,13 +251,12 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Initialize on DOM ready — set today's period as default
+// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     const range = getPeriodRange('today');
     periodFromTs = range.from;
     periodToTs   = range.to;
 
-    // Set default date input values for custom range
     const today = new Date().toISOString().split('T')[0];
     const fromInput = document.getElementById('dp-from');
     const toInput   = document.getElementById('dp-to');
