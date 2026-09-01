@@ -97,7 +97,7 @@ except Exception as _err:
     pass
 
 def recalc_account_pnl(account_id):
-    """Calculate real plToday and plAllTime from history deals for an account"""
+    """Fallback: Calculate plToday and plAllTime from history deals if not provided by EA"""
     import datetime as _dt
     try:
         all_deals = history_db.get(account_id, [])
@@ -105,9 +105,10 @@ def recalc_account_pnl(account_id):
 
         pl_today_calc = 0.0
         pl_alltime_calc = 0.0
+        has_closed_deals = False
+
         for deal in all_deals:
             deal_type = str(deal.get('type', '')).lower()
-            # ONLY include Buy and Sell trade deals. Ignore deposits, withdrawals, balance, credit, etc.
             if deal_type not in ('buy', 'sell'):
                 continue
             
@@ -122,6 +123,7 @@ def recalc_account_pnl(account_id):
                             float(deal.get('commission', 0) or 0))
             
             pl_alltime_calc += deal_pnl
+            has_closed_deals = True
             
             deal_time = int(deal.get('time', 0))
             if deal_time > 0:
@@ -129,7 +131,7 @@ def recalc_account_pnl(account_id):
                 if deal_date_str == today_date_str:
                     pl_today_calc += deal_pnl
 
-        if account_id in accounts_db:
+        if account_id in accounts_db and has_closed_deals:
             balance_val = float(accounts_db[account_id].get('balance', 1) or 1)
             accounts_db[account_id]['plToday']      = round(pl_today_calc, 2)
             accounts_db[account_id]['plTodayPct']   = round((pl_today_calc / balance_val) * 100, 4) if balance_val > 0 else 0.0
@@ -166,6 +168,16 @@ def update_account():
         elif not incoming_holder:
             account_info['holderName'] = existing_holder or f"Account #{account_id}"
 
+        # Clean numeric types for EA P&L metrics
+        if 'plToday' in account_info:
+            account_info['plToday'] = round(float(account_info['plToday'] or 0), 2)
+        if 'plAllTime' in account_info:
+            account_info['plAllTime'] = round(float(account_info['plAllTime'] or 0), 2)
+        if 'plTodayPct' in account_info:
+            account_info['plTodayPct'] = float(account_info['plTodayPct'] or 0)
+        if 'plAllTimePct' in account_info:
+            account_info['plAllTimePct'] = float(account_info['plAllTimePct'] or 0)
+
         if account_id in accounts_db:
             accounts_db[account_id].update(account_info)
         else:
@@ -178,7 +190,10 @@ def update_account():
         if 'history' in data and isinstance(data['history'], list):
             history_db[account_id] = data['history']
 
-        recalc_account_pnl(account_id)
+        # Fallback recalc only if EA sent 0 or missing
+        if float(accounts_db[account_id].get('plAllTime', 0)) == 0.0:
+            recalc_account_pnl(account_id)
+
         save_db()
         return jsonify({"status": "success", "message": f"Account {account_id} updated."}), 200
 

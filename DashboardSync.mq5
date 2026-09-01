@@ -3,16 +3,16 @@
 //|        Full sync: auto-detect broker, account type & telemetry   |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026"
-#property version   "2.30"
+#property version   "2.31"
 
 input string ApiUrl              = "https://dashboard-ten-delta-53.vercel.app/api/update_account"; // Live Vercel API URL
 input string AccountNickname     = "";   // Custom Account Nickname / Holder Name (Optional)
 input int    SyncIntervalSeconds  = 5;   // Sync interval in seconds
-input int    MaxHistoryDeals      = 200; // Max recent history deals to send (last 30 days)
+input int    MaxHistoryDeals      = 300; // Max recent history deals to send
 
 //+------------------------------------------------------------------+
 void OnInit() {
-    Print("DashboardSync v2.3 initialized. Syncing to: ", ApiUrl);
+    Print("DashboardSync v2.31 initialized. Syncing to: ", ApiUrl);
     EventSetTimer(SyncIntervalSeconds);
 }
 
@@ -75,9 +75,9 @@ string OrderToJson(int idx) {
 //+------------------------------------------------------------------+
 string DealToJson(ulong ticket) {
     if (!HistoryDealSelect(ticket)) return "";
-    long   type   = HistoryDealGetInteger(ticket, DEAL_TYPE);
+    long type = HistoryDealGetInteger(ticket, DEAL_TYPE);
 
-    // ONLY export trading deals (Buy/Sell). Skip deposits/withdrawals/credits from trade history!
+    // Skip non-trade deals (deposits, balance, credit)
     if (type != DEAL_TYPE_BUY && type != DEAL_TYPE_SELL) return "";
 
     string sym    = HistoryDealGetString(ticket, DEAL_SYMBOL);
@@ -125,7 +125,7 @@ void SendFullTelemetry() {
     int    openPos     = PositionsTotal();
     int    totalOrders = OrdersTotal();
 
-    // ── Calculate REAL trading P/L (excluding deposits/withdrawals) ──
+    // ── Calculate REAL trading P/L from ALL history ──
     MqlDateTime dtNow;
     TimeToStruct(TimeCurrent(), dtNow);
     dtNow.hour = 0; dtNow.min = 0; dtNow.sec = 0;
@@ -134,14 +134,18 @@ void SendFullTelemetry() {
     double plToday   = 0.0;
     double plAllTime = 0.0;
 
-    // Load all-time history (5 years) for full P&L calculation
-    datetime allTimeFrom = TimeCurrent() - (datetime)(5 * 365 * 24 * 3600);
-    HistorySelect(allTimeFrom, TimeCurrent());
+    // Load ALL history deals from beginning of account time (0 to now)
+    HistorySelect(0, TimeCurrent());
     int totalDealsAll = HistoryDealsTotal();
 
+    int countBuySell = 0;
+    int countOutLegs = 0;
+    int countTodayDeals = 0;
+
     for (int i = 0; i < totalDealsAll; i++) {
-        ulong  dTicket = HistoryDealGetTicket(i);
-        if (!HistoryDealSelect(dTicket)) continue;
+        ulong dTicket = HistoryDealGetTicket(i);
+        if (dTicket == 0) continue;
+
         long   dType   = HistoryDealGetInteger(dTicket, DEAL_TYPE);
         long   dEntry  = HistoryDealGetInteger(dTicket, DEAL_ENTRY);
         long   dTime   = HistoryDealGetInteger(dTicket, DEAL_TIME);
@@ -149,17 +153,23 @@ void SendFullTelemetry() {
         double dSwap   = HistoryDealGetDouble(dTicket, DEAL_SWAP);
         double dComm   = HistoryDealGetDouble(dTicket, DEAL_COMMISSION);
 
-        // ONLY count actual trading deals (Buy/Sell). EXCLUDE capital deposits/withdrawals (DEAL_TYPE_BALANCE)!
         if (dType == DEAL_TYPE_BUY || dType == DEAL_TYPE_SELL) {
-            if (dEntry == DEAL_ENTRY_OUT || dEntry == DEAL_ENTRY_OUT_BY || dEntry == DEAL_ENTRY_INOUT) {
+            countBuySell++;
+            // Count closing legs or any deal with profit/loss/swap/commission
+            if (dEntry == DEAL_ENTRY_OUT || dEntry == DEAL_ENTRY_OUT_BY || dEntry == DEAL_ENTRY_INOUT || dProfit != 0 || dSwap != 0 || dComm != 0) {
+                countOutLegs++;
                 double dealTotal = dProfit + dSwap + dComm;
                 plAllTime += dealTotal;
                 if ((datetime)dTime >= todayStart) {
                     plToday += dealTotal;
+                    countTodayDeals++;
                 }
             }
         }
     }
+
+    Print(StringFormat("[DIAG] Account %s | TotalDeals: %d | BuySell: %d | ClosingDeals: %d | TodayDeals: %d | P/L Today: $%.2f | P/L AllTime: $%.2f",
+        accountId, totalDealsAll, countBuySell, countOutLegs, countTodayDeals, plToday, plAllTime));
 
     double plTodayPct   = balance > 0 ? (plToday   / balance) * 100.0 : 0.0;
     double plAllTimePct = balance > 0 ? (plAllTime / balance) * 100.0 : 0.0;
@@ -185,9 +195,9 @@ void SendFullTelemetry() {
     }
     ordersJson += "]";
 
-    // ── Build history array (last 30 days, up to MaxHistoryDeals) ──
+    // ── Build history array (recent deals, up to MaxHistoryDeals) ──
     string historyJson = "[";
-    datetime histFrom = TimeCurrent() - 30 * 24 * 3600;
+    datetime histFrom = TimeCurrent() - 90 * 24 * 3600; // Last 90 days
     HistorySelect(histFrom, TimeCurrent());
     int totalDeals = HistoryDealsTotal();
     int startIdx = MathMax(0, totalDeals - MaxHistoryDeals);
@@ -230,9 +240,9 @@ void SendFullTelemetry() {
     int res = WebRequest("POST", ApiUrl, headers, 5000, data, result, resultHeaders);
 
     if (res == 200 || res == 201) {
-        Print("Synced '", holderName, "' (", accountId, ") | Real Trade P/L Today: $", DoubleToString(plToday, 2),
-              " | Real Trade P/L All-Time: $", DoubleToString(plAllTime, 2),
-              " | Closed Deals: ", totalDealsAll, " | Open Positions: ", openPos);
+        Print("Synced '", holderName, "' (", accountId, ") | P/L Today: $", DoubleToString(plToday, 2),
+              " | P/L All-Time: $", DoubleToString(plAllTime, 2),
+              " | Open Positions: ", openPos);
     } else {
         int err = GetLastError();
         if (err == 4014) {
