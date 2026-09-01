@@ -219,6 +219,9 @@ def get_accounts():
             acc['status'] = 'Disconnected'
 
         filtered_accounts.append(acc)
+
+    # Sort deterministically by Active status and Account ID so row positions never jump around
+    filtered_accounts.sort(key=lambda x: (0 if x.get('status') == 'Active' else 1, str(x.get('account', ''))))
     return jsonify({"status": "success", "data": filtered_accounts}), 200
 
 @app.route('/api/positions', methods=['GET'])

@@ -12,15 +12,19 @@ function renderDashboard() {
     }
 
     accounts.sort((a, b) => {
-        if (globalFilterVal === "latest") return (b.lastSeen || 0) - (a.lastSeen || 0);
-        if (globalFilterVal === "oldest") return (a.lastSeen || 0) - (b.lastSeen || 0);
-        if (globalFilterVal === "most-profitable") return parseFloat(b.plToday || 0) - parseFloat(a.plToday || 0);
-        if (globalFilterVal === "most-loss") return parseFloat(a.plToday || 0) - parseFloat(b.plToday || 0);
-        if (globalFilterVal === "profit-alltime") return parseFloat(b.plAllTime || 0) - parseFloat(a.plAllTime || 0);
-        if (globalFilterVal === "loss-alltime") return parseFloat(a.plAllTime || 0) - parseFloat(b.plAllTime || 0);
-        if (globalFilterVal === "highest-balance") return parseFloat(b.balance || 0) - parseFloat(a.balance || 0);
-        if (globalFilterVal === "lowest-balance") return parseFloat(a.balance || 0) - parseFloat(b.balance || 0);
-        return 0;
+        let diff = 0;
+        if (globalFilterVal === "latest") diff = (b.lastSeen || 0) - (a.lastSeen || 0);
+        else if (globalFilterVal === "oldest") diff = (a.lastSeen || 0) - (b.lastSeen || 0);
+        else if (globalFilterVal === "most-profitable") diff = parseFloat(b.plToday || 0) - parseFloat(a.plToday || 0);
+        else if (globalFilterVal === "most-loss") diff = parseFloat(a.plToday || 0) - parseFloat(b.plToday || 0);
+        else if (globalFilterVal === "profit-alltime") diff = parseFloat(b.plAllTime || 0) - parseFloat(a.plAllTime || 0);
+        else if (globalFilterVal === "loss-alltime") diff = parseFloat(a.plAllTime || 0) - parseFloat(b.plAllTime || 0);
+        else if (globalFilterVal === "highest-balance") diff = parseFloat(b.balance || 0) - parseFloat(a.balance || 0);
+        else if (globalFilterVal === "lowest-balance") diff = parseFloat(a.balance || 0) - parseFloat(b.balance || 0);
+
+        if (diff !== 0) return diff;
+        // Secondary stable tie-breaker: Account ID string comparison
+        return String(a.account || '').localeCompare(String(b.account || ''));
     });
     if (search) {
         accounts = accounts.filter(a =>
