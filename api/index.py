@@ -28,13 +28,14 @@ positions_db  = {}  # { account_id: [ ...positions... ] }
 orders_db     = {}  # { account_id: [ ...orders... ] }
 history_db    = {}  # { account_id: [ ...deals... ] }
 alerts_db     = []  # [ ...alerts... ]
+deleted_accounts_db = set()  # set of explicitly deleted account_id strings
 
 DB_FILE = '/tmp/db.json' if (os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME')) else 'db.json'
 UPSTASH_URL = os.environ.get('UPSTASH_REDIS_REST_URL')
 UPSTASH_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN')
 
 def load_db():
-    global accounts_db, positions_db, orders_db, history_db, alerts_db
+    global accounts_db, positions_db, orders_db, history_db, alerts_db, deleted_accounts_db
     if UPSTASH_URL and UPSTASH_TOKEN:
         try:
             res = requests.get(
@@ -52,6 +53,7 @@ def load_db():
                     orders_db = data.get('orders', {})
                     history_db = data.get('history', {})
                     alerts_db = data.get('alerts', [])
+                    deleted_accounts_db = set(data.get('deleted_accounts', []))
         except Exception as e:
             print(f"[WARNING] Failed to load from Upstash: {e}")
     elif os.path.exists(DB_FILE):
@@ -63,6 +65,7 @@ def load_db():
                 orders_db = data.get('orders', {})
                 history_db = data.get('history', {})
                 alerts_db = data.get('alerts', [])
+                deleted_accounts_db = set(data.get('deleted_accounts', []))
         except Exception as e:
             print(f"[WARNING] Failed to load {DB_FILE}: {e}")
 
@@ -72,7 +75,8 @@ def save_db():
         'positions': positions_db,
         'orders': orders_db,
         'history': history_db,
-        'alerts': alerts_db
+        'alerts': alerts_db,
+        'deleted_accounts': list(deleted_accounts_db)
     }
     if UPSTASH_URL and UPSTASH_TOKEN:
         try:
@@ -157,6 +161,11 @@ def update_account():
             return jsonify({"status": "error", "message": "'account' field is required."}), 400
 
         account_id = str(data['account'])
+
+        # Ignore incoming EA telemetry if account was deleted from dashboard
+        if account_id in deleted_accounts_db:
+            return jsonify({"status": "ignored", "message": f"Account {account_id} has been deleted."}), 200
+
         account_info = {k: v for k, v in data.items() if k not in ('positions', 'orders', 'history')}
         account_info['lastSeen'] = int(time.time())
 
@@ -207,7 +216,7 @@ def get_accounts():
     now = int(time.time())
     filtered_accounts = []
     for k, a in accounts_db.items():
-        if str(k) in ('888888', '999999'):
+        if str(k) in ('888888', '999999') or str(k) in deleted_accounts_db:
             continue
         acc = dict(a)
         last_seen = int(acc.get('lastSeen', 0))
@@ -232,6 +241,8 @@ def get_positions():
     load_db()
     all_positions = []
     for acc_id, positions in positions_db.items():
+        if str(acc_id) in deleted_accounts_db:
+            continue
         for p in positions:
             p['_account'] = acc_id
             p['_broker']  = accounts_db.get(acc_id, {}).get('broker', '')
@@ -244,6 +255,8 @@ def get_orders():
     load_db()
     all_orders = []
     for acc_id, orders in orders_db.items():
+        if str(acc_id) in deleted_accounts_db:
+            continue
         for o in orders:
             o['_account'] = acc_id
             o['_broker']  = accounts_db.get(acc_id, {}).get('broker', '')
@@ -256,6 +269,8 @@ def get_history():
     load_db()
     all_history = []
     for acc_id, deals in history_db.items():
+        if str(acc_id) in deleted_accounts_db:
+            continue
         for d in deals:
             d['_account'] = acc_id
             d['_broker']  = accounts_db.get(acc_id, {}).get('broker', '')
@@ -272,7 +287,7 @@ def get_alerts():
 @app.route('/summary', methods=['GET'])
 def get_summary():
     load_db()
-    accounts = list(accounts_db.values())
+    accounts = [a for k, a in accounts_db.items() if str(k) not in deleted_accounts_db]
     total_balance    = sum(float(a.get('balance', 0)) for a in accounts)
     total_equity     = sum(float(a.get('equity', 0)) for a in accounts)
     total_pl_today   = sum(float(a.get('plToday', 0)) for a in accounts)
@@ -302,6 +317,7 @@ def delete_account(account_id):
     positions_db.pop(acc_str, None)
     orders_db.pop(acc_str, None)
     history_db.pop(acc_str, None)
+    deleted_accounts_db.add(acc_str)
     save_db()
     return jsonify({"status": "success", "message": f"Account {acc_str} deleted"}), 200
 

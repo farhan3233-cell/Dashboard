@@ -43,6 +43,20 @@ async function fetchJSON(url) {
 }
 
 function mergeAccounts(existing, incoming) {
+    let deletedList = ['34891218', '34891544']; // Include user's requested deleted accounts by default
+    try {
+        const stored = JSON.parse(localStorage.getItem('trading_dashboard_deleted_accounts') || '[]');
+        if (Array.isArray(stored)) {
+            stored.forEach(id => {
+                if (!deletedList.includes(String(id))) deletedList.push(String(id));
+            });
+        }
+    } catch(e) {}
+    const deletedSet = new Set(deletedList.map(id => String(id)));
+
+    existing = (existing || []).filter(a => a && !deletedSet.has(String(a.account)));
+    incoming = (incoming || []).filter(a => a && !deletedSet.has(String(a.account)));
+
     if (!existing || existing.length === 0) return incoming || [];
     if (!incoming || incoming.length === 0) {
         return existing.map(a => ({ ...a, status: 'Disconnected' }));

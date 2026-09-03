@@ -223,13 +223,25 @@ function toggleAccountMenu(event, accountId) {
 async function confirmDeleteAccount(accountId, name) {
     if (confirm(`Are you sure you want to remove account #${accountId} (${name}) from dashboard?`)) {
         try {
-            const res = await fetch(`/api/delete_account/${accountId}`, { method: 'DELETE' });
-            if (res.ok) {
-                cachedAccounts = cachedAccounts.filter(a => String(a.account) !== String(accountId));
-                renderDashboard();
-                if (typeof renderAccounts === 'function') renderAccounts();
-                if (typeof renderProfitSharing === 'function') renderProfitSharing();
+            const accIdStr = String(accountId);
+            
+            // Store deleted account in localStorage so mergeAccounts filtering persists immediately on frontend
+            let deletedList = [];
+            try {
+                deletedList = JSON.parse(localStorage.getItem('trading_dashboard_deleted_accounts') || '[]');
+            } catch(e) {}
+            if (!deletedList.includes(accIdStr)) {
+                deletedList.push(accIdStr);
+                localStorage.setItem('trading_dashboard_deleted_accounts', JSON.stringify(deletedList));
             }
+
+            cachedAccounts = cachedAccounts.filter(a => String(a.account) !== accIdStr);
+            renderDashboard();
+            if (typeof renderAccounts === 'function') renderAccounts();
+            if (typeof renderProfitSharing === 'function') renderProfitSharing();
+            if (typeof renderGroupsPage === 'function') renderGroupsPage();
+
+            await fetch(`/api/delete_account/${accountId}`, { method: 'DELETE' });
         } catch (e) {
             console.error('Error deleting account:', e);
         }
